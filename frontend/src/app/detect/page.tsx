@@ -1,0 +1,743 @@
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search,
+  AlertTriangle,
+  Shield,
+  Scale,
+  Brain,
+  Loader2,
+  Clock,
+  Cpu,
+  FileDown,
+  Link2,
+  Users,
+  ShieldAlert,
+  Hash,
+  ChevronDown,
+  ChevronUp,
+  Crosshair,
+  Target,
+} from "lucide-react";
+import { analyzeText, getDossierUrl, getIntelligence } from "@/lib/api";
+import type {
+  DetectResponse,
+  RiskLevel,
+  KillChainStage,
+  IntelligenceResponse,
+} from "@/lib/types";
+import { RISK_BG_CLASSES } from "@/lib/types";
+
+// ---------- Kill Chain Stage Config ----------
+
+const KILL_CHAIN_CONFIG: Record<
+  string,
+  { icon: string; color: string; glow: string }
+> = {
+  S1_CONTACT: { icon: "📡", color: "#3b82f6", glow: "rgba(59,130,246,0.3)" },
+  S2_PRETEXT: { icon: "🎭", color: "#8b5cf6", glow: "rgba(139,92,246,0.3)" },
+  S3_PRESSURE: { icon: "⚡", color: "#f97316", glow: "rgba(249,115,22,0.3)" },
+  S4_ISOLATION: { icon: "🔒", color: "#ef4444", glow: "rgba(239,68,68,0.3)" },
+  S5_EXTRACTION: {
+    icon: "💰",
+    color: "#dc2626",
+    glow: "rgba(220,38,38,0.3)",
+  },
+  S6_PERSISTENCE: {
+    icon: "🔄",
+    color: "#9333ea",
+    glow: "rgba(147,51,234,0.3)",
+  },
+};
+
+// ---------- Confidence Gauge ----------
+
+function ConfidenceGauge({ value }: { value: number }) {
+  const percentage = Math.round(value * 100);
+  const circumference = 2 * Math.PI * 45;
+  const offset = circumference - value * circumference;
+
+  const color =
+    value >= 0.85
+      ? "#ef4444"
+      : value >= 0.65
+        ? "#f97316"
+        : value >= 0.4
+          ? "#eab308"
+          : "#22c55e";
+
+  return (
+    <div className="relative w-28 h-28 mx-auto flex-shrink-0">
+      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="6"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke={color}
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ filter: `drop-shadow(0 0 8px ${color}40)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold text-white">{percentage}%</span>
+        <span className="text-[10px] text-gray-400 mt-0.5">confidence</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Kill Chain Timeline ----------
+
+function KillChainTimeline({ stages }: { stages: KillChainStage[] }) {
+  const [expandedStage, setExpandedStage] = useState<string | null>(null);
+  const detectedCount = stages.filter((s) => s.detected).length;
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+        <Crosshair className="h-4 w-4 text-cyan-400" />
+        Scam Kill Chain™ ({detectedCount}/6 stages detected)
+      </h3>
+
+      {/* Timeline */}
+      <div className="relative">
+        {/* Connection line */}
+        <div className="absolute left-5 top-6 bottom-6 w-0.5 bg-gradient-to-b from-blue-500/30 via-orange-500/30 to-red-500/30" />
+
+        <div className="space-y-1">
+          {stages.map((stage, i) => {
+            const config = KILL_CHAIN_CONFIG[stage.stage] || {
+              icon: "⬜",
+              color: "#6b7280",
+              glow: "transparent",
+            };
+            const isExpanded = expandedStage === stage.stage;
+
+            return (
+              <motion.div
+                key={stage.stage}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.08 * i }}
+              >
+                <button
+                  onClick={() =>
+                    setExpandedStage(isExpanded ? null : stage.stage)
+                  }
+                  className={`w-full flex items-center gap-3 p-2.5 rounded-lg transition-all text-left ${
+                    stage.detected
+                      ? "bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.06]"
+                      : "opacity-40 hover:opacity-60"
+                  }`}
+                >
+                  {/* Stage indicator */}
+                  <div
+                    className="relative z-10 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                    style={{
+                      backgroundColor: stage.detected
+                        ? `${config.color}20`
+                        : "rgba(255,255,255,0.03)",
+                      boxShadow: stage.detected
+                        ? `0 0 12px ${config.glow}`
+                        : "none",
+                      border: stage.detected
+                        ? `1px solid ${config.color}40`
+                        : "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    {config.icon}
+                  </div>
+
+                  {/* Stage info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-500">
+                        {stage.stage.split("_")[0]}
+                      </span>
+                      <span
+                        className={`text-sm font-medium ${stage.detected ? "text-gray-200" : "text-gray-600"}`}
+                      >
+                        {stage.stage_name}
+                      </span>
+                      {stage.detected && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{
+                            backgroundColor: `${config.color}20`,
+                            color: config.color,
+                          }}
+                        >
+                          {stage.severity.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {stage.detected && stage.evidence && (
+                    <div className="text-gray-600">
+                      {isExpanded ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </div>
+                  )}
+                </button>
+
+                {/* Expanded evidence */}
+                <AnimatePresence>
+                  {isExpanded && stage.evidence && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="ml-13 pl-13 py-2 px-4 ml-[52px]">
+                        <p className="text-xs text-gray-400 italic bg-white/[0.02] rounded-lg p-2.5 border border-white/[0.04]">
+                          &quot;{stage.evidence}&quot;
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Victim Vulnerability Bar ----------
+
+function VulnerabilityBar({
+  score,
+  factors,
+}: {
+  score: number;
+  factors: string[];
+}) {
+  const percentage = Math.round(score * 100);
+  const color =
+    score >= 0.7 ? "#ef4444" : score >= 0.4 ? "#f97316" : "#22c55e";
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+        <ShieldAlert className="h-4 w-4 text-orange-400" />
+        Victim Vulnerability Assessment
+      </h3>
+      <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400">Vulnerability Score</span>
+          <span className="text-sm font-bold" style={{ color }}>
+            {percentage}%
+          </span>
+        </div>
+        <div className="w-full h-2 rounded-full bg-white/[0.06]">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${percentage}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="h-full rounded-full"
+            style={{
+              background: `linear-gradient(90deg, ${color}80, ${color})`,
+              boxShadow: `0 0 8px ${color}40`,
+            }}
+          />
+        </div>
+        {factors.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {factors.map((factor, i) => (
+              <span
+                key={i}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] text-gray-400 border border-white/[0.06]"
+              >
+                {factor}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Intelligence Panel ----------
+
+function IntelligencePanel({ caseId }: { caseId: string }) {
+  const [data, setData] = useState<IntelligenceResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const handleLoad = async () => {
+    if (data) {
+      setExpanded(!expanded);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await getIntelligence(caseId);
+      setData(result);
+      setExpanded(true);
+    } catch {
+      // No related cases is fine
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={handleLoad}
+        className="w-full flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all"
+      >
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-violet-400" />
+          <span className="text-sm font-semibold text-gray-300">
+            Cross-Case Intelligence
+          </span>
+          {data && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 font-semibold">
+              {data.total_linked_cases} linked
+            </span>
+          )}
+        </div>
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 text-gray-500 animate-spin" />
+        ) : (
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-gray-500 transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {expanded && data && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 pl-2">
+              {/* Syndicate indicators */}
+              {data.syndicate_indicators.length > 0 && (
+                <div className="p-2.5 rounded-lg bg-red-500/5 border border-red-500/10">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Users className="h-3.5 w-3.5 text-red-400" />
+                    <span className="text-xs font-semibold text-red-400">
+                      Syndicate Indicators
+                    </span>
+                  </div>
+                  {data.syndicate_indicators.map((indicator, i) => (
+                    <p key={i} className="text-xs text-gray-400">
+                      • {indicator}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Related cases */}
+              {data.related_cases.map((rc, i) => (
+                <div
+                  key={rc.id}
+                  className="p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-300">
+                      {rc.scam_type || "Unknown"}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 font-bold">
+                      {Math.round(rc.similarity_score * 100)}% match
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mb-1">
+                    {rc.similarity_reason}
+                  </p>
+                  <p className="text-[10px] text-gray-600 truncate">
+                    {rc.input_preview}
+                  </p>
+                </div>
+              ))}
+
+              {data.related_cases.length === 0 && (
+                <p className="text-xs text-gray-600 p-2">
+                  No related cases found yet. Analyze more messages to build the
+                  intelligence network.
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ---------- Tactic Card ----------
+
+function TacticCard({
+  name,
+  description,
+  confidence,
+  index,
+}: {
+  name: string;
+  description: string;
+  confidence: number;
+  index: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.1 * index }}
+      className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+    >
+      <div className="mt-0.5">
+        <Brain className="h-4 w-4 text-violet-400" />
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-200">{name}</span>
+          <span className="text-xs text-gray-500">
+            {Math.round(confidence * 100)}%
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">{description}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ---------- Legal Card ----------
+
+function LegalCard({
+  law,
+  section,
+  title,
+  punishment,
+  index,
+}: {
+  code: string;
+  law: string;
+  section: string;
+  title: string;
+  punishment: string | null;
+  index: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.1 * index }}
+      className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <Scale className="h-3.5 w-3.5 text-cyan-400" />
+        <span className="text-xs font-semibold text-cyan-400">
+          {law} § {section}
+        </span>
+      </div>
+      <p className="text-sm font-medium text-gray-200">{title}</p>
+      {punishment && (
+        <p className="text-xs text-gray-500 mt-1">Punishment: {punishment}</p>
+      )}
+    </motion.div>
+  );
+}
+
+// ---------- Main Page ----------
+
+export default function DetectPage() {
+  const [input, setInput] = useState("");
+  const [inputType, setInputType] = useState<"text" | "transcript" | "url">(
+    "text",
+  );
+  const [result, setResult] = useState<DetectResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAnalyze = async () => {
+    if (!input.trim() || input.trim().length < 5) return;
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const response = await analyzeText({
+        text: input.trim(),
+        input_type: inputType,
+      });
+      setResult(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <Search className="h-6 w-6 text-cyan-400" />
+          <h1 className="text-2xl font-bold text-white">Detect</h1>
+        </div>
+        <p className="text-gray-400 text-sm max-w-2xl">
+          Paste a suspicious message, call transcript, or URL. NETRA decomposes
+          it through a 6-stage Kill Chain, detects psychological manipulation
+          tactics, maps legal sections, and generates forensic evidence dossiers.
+        </p>
+      </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Input Panel */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="glass-card p-6 space-y-4"
+        >
+          {/* Input type selector */}
+          <div className="flex gap-2">
+            {(["text", "transcript", "url"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setInputType(type)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  inputType === type
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                    : "bg-white/[0.04] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08]"
+                }`}
+              >
+                {type === "text"
+                  ? "Message"
+                  : type === "transcript"
+                    ? "Call Transcript"
+                    : "URL"}
+              </button>
+            ))}
+          </div>
+
+          {/* Text input */}
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={
+              inputType === "text"
+                ? "Paste suspicious WhatsApp/SMS message here..."
+                : inputType === "transcript"
+                  ? "Paste the call transcript here..."
+                  : "Paste the suspicious URL here..."
+            }
+            className="w-full h-64 bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm text-gray-200 placeholder:text-gray-600 resize-none focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all font-[family-name:var(--font-mono)]"
+          />
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">
+              {input.length} characters
+            </span>
+            <button
+              onClick={handleAnalyze}
+              disabled={loading || input.trim().length < 5}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Shield className="h-4 w-4" />
+                  Analyze
+                </>
+              )}
+            </button>
+          </div>
+
+          {error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Results Panel */}
+        <AnimatePresence mode="wait">
+          {result ? (
+            <motion.div
+              key="result"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="glass-card p-6 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto"
+            >
+              {/* Scam Type + Risk + Confidence */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                      RISK_BG_CLASSES[
+                        (result.risk_level as RiskLevel) || "unknown"
+                      ]
+                    }`}
+                  >
+                    {result.risk_level.toUpperCase()}
+                  </span>
+                  <h2 className="text-xl font-bold text-white mt-3">
+                    {result.scam_type || "Not a Scam"}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Language: {result.language} · Model: {result.model_used}
+                  </p>
+                </div>
+                <ConfidenceGauge value={result.confidence} />
+              </div>
+
+              {/* AI Reasoning */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-cyan-400" />
+                  AI Reasoning
+                </h3>
+                <p className="text-sm text-gray-400 leading-relaxed bg-white/[0.02] rounded-lg p-3 border border-white/[0.04]">
+                  {result.ai_reasoning}
+                </p>
+              </div>
+
+              {/* ★ KILL CHAIN TIMELINE */}
+              {result.kill_chain && result.kill_chain.length > 0 && (
+                <KillChainTimeline stages={result.kill_chain} />
+              )}
+
+              {/* ★ VICTIM VULNERABILITY */}
+              {result.victim_vulnerability_score > 0 && (
+                <VulnerabilityBar
+                  score={result.victim_vulnerability_score}
+                  factors={result.victim_vulnerability_factors || []}
+                />
+              )}
+
+              {/* Tactics Detected */}
+              {result.tactics_detected.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-400" />
+                    Psychological Tactics ({result.tactics_detected.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {result.tactics_detected.map((tactic, i) => (
+                      <TacticCard key={i} {...tactic} index={i} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Legal Sections */}
+              {result.legal_sections.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                    <Scale className="h-4 w-4 text-cyan-400" />
+                    Applicable Legal Sections ({result.legal_sections.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {result.legal_sections.map((section, i) => (
+                      <LegalCard key={section.code} {...section} index={i} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ★ CROSS-CASE INTELLIGENCE */}
+              <IntelligencePanel caseId={result.id} />
+
+              {/* Evidence Hash */}
+              {result.evidence_hash && (
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Hash className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-400">
+                      Evidence Hash (SHA-256)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-mono break-all">
+                    {result.evidence_hash}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Bar: Dossier Download + Processing Info */}
+              <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between">
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {result.processing_time_ms}ms
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Cpu className="h-3 w-3" />
+                    {result.model_used}
+                  </span>
+                </div>
+
+                {/* ★ FORENSIC DOSSIER DOWNLOAD */}
+                <a
+                  href={getDossierUrl(result.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 text-white text-xs font-medium hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                  Forensic Dossier
+                </a>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="glass-card p-6 flex flex-col items-center justify-center text-center min-h-[400px]"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-4">
+                <Shield className="h-8 w-8 text-gray-600" />
+              </div>
+              <h3 className="text-gray-400 font-medium mb-1">
+                No analysis yet
+              </h3>
+              <p className="text-sm text-gray-600 max-w-xs">
+                Paste a suspicious message on the left and click Analyze to
+                see NETRA&apos;s Kill Chain decomposition, tactic detection,
+                legal mapping, and forensic dossier generation.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
