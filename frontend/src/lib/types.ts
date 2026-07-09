@@ -52,6 +52,20 @@ export interface IntelligenceResponse {
   total_linked_cases: number;
 }
 
+export interface EntityInfo {
+  entity_type: string;
+  value: string;
+  confidence: number;
+  source: "regex" | "llm";
+}
+
+export interface GraphIntel {
+  nodes_created: number;
+  edges_created: number;
+  nodes_linked: number;
+  entities_extracted: EntityInfo[];
+}
+
 export interface DetectResponse {
   id: string;
   scam_type: string | null;
@@ -67,6 +81,7 @@ export interface DetectResponse {
   language: string;
   model_used: string;
   processing_time_ms: number;
+  graph_intel: GraphIntel | null;
 }
 
 export interface CaseSummary {
@@ -82,7 +97,7 @@ export interface CaseSummary {
 
 export interface GraphNode {
   id: string;
-  node_type: "phone" | "bank_account" | "upi_id" | "victim" | "location";
+  node_type: string;  // Flexible — includes phone, bank_account, upi_id, victim, location, case, suspect, organization, email, url, amount, identity_doc, designation
   label: string;
   properties: Record<string, unknown>;
   risk_score: number | null;
@@ -94,7 +109,7 @@ export interface GraphEdge {
   id: string;
   source_id: string;
   target_id: string;
-  edge_type: "called" | "transferred" | "reported" | "linked_to" | "located_at";
+  edge_type: string;  // Flexible — includes called, transferred, reported, linked_to, located_at, used_in, mentioned_in, impersonated_in, demanded_in, claimed_in
   properties: Record<string, unknown>;
   weight: number;
 }
@@ -202,11 +217,20 @@ export const RISK_BG_CLASSES: Record<RiskLevel, string> = {
 };
 
 export const NODE_TYPE_COLORS: Record<string, string> = {
-  phone: "#3b82f6",       // blue
-  bank_account: "#f59e0b", // amber
-  upi_id: "#8b5cf6",      // violet
-  victim: "#ef4444",       // red
-  location: "#10b981",     // emerald
+  phone: "#3b82f6",         // blue
+  bank_account: "#f59e0b",  // amber
+  upi_id: "#8b5cf6",        // violet
+  victim: "#ef4444",        // red
+  location: "#10b981",      // emerald
+  case: "#06b6d4",          // cyan
+  suspect: "#f43f5e",       // rose
+  organization: "#6366f1",  // indigo
+  email: "#14b8a6",         // teal
+  url: "#a855f7",           // purple
+  amount: "#eab308",        // yellow
+  identity_doc: "#f97316",  // orange
+  designation: "#ec4899",   // pink
+  ifsc: "#f59e0b",          // amber (same as bank)
 };
 
 export const NODE_TYPE_ICONS: Record<string, string> = {
@@ -215,4 +239,13 @@ export const NODE_TYPE_ICONS: Record<string, string> = {
   upi_id: "💳",
   victim: "👤",
   location: "📍",
+  case: "📋",
+  suspect: "🕵️",
+  organization: "🏢",
+  email: "📧",
+  url: "🔗",
+  amount: "💰",
+  identity_doc: "🪪",
+  designation: "🏷️",
+  ifsc: "🏦",
 };

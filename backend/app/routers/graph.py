@@ -86,6 +86,82 @@ async def search_nodes(
     ]
 
 
+@router.get("/recent", response_model=list[SearchResult])
+async def get_recent_entities(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the most recently discovered entities (auto-populated from cases)."""
+    stmt = (
+        select(GraphNode)
+        .where(GraphNode.node_type != "case")  # Exclude case nodes
+        .order_by(GraphNode.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    nodes = result.scalars().all()
+
+    return [
+        SearchResult(
+            id=str(n.id),
+            node_type=n.node_type,
+            label=n.label,
+            risk_score=n.risk_score,
+        )
+        for n in nodes
+    ]
+
+
+class GraphStats(BaseModel):
+    total_nodes: int
+    total_edges: int
+    node_type_counts: dict[str, int]
+    high_risk_entities: int
+    syndicate_clusters: int
+
+
+@router.get("/stats", response_model=GraphStats)
+async def get_graph_stats(
+    db: AsyncSession = Depends(get_db),
+):
+    """Get aggregate graph statistics."""
+    from sqlalchemy import func as sqlfunc
+
+    # Total counts
+    node_count = await db.execute(select(sqlfunc.count(GraphNode.id)))
+    edge_count = await db.execute(select(sqlfunc.count(GraphEdge.id)))
+
+    # Node type breakdown
+    type_counts_stmt = (
+        select(GraphNode.node_type, sqlfunc.count(GraphNode.id))
+        .group_by(GraphNode.node_type)
+    )
+    type_counts_result = await db.execute(type_counts_stmt)
+    type_counts = {row[0]: row[1] for row in type_counts_result.all()}
+
+    # High risk entities (risk_score > 0.7)
+    high_risk = await db.execute(
+        select(sqlfunc.count(GraphNode.id)).where(GraphNode.risk_score > 0.7)
+    )
+
+    # Syndicate clusters: nodes connected to multiple cases
+    # (simplified: count nodes with risk > 0.5 that aren't case nodes)
+    syndicate = await db.execute(
+        select(sqlfunc.count(GraphNode.id)).where(
+            GraphNode.risk_score > 0.5,
+            GraphNode.node_type != "case",
+        )
+    )
+
+    return GraphStats(
+        total_nodes=node_count.scalar() or 0,
+        total_edges=edge_count.scalar() or 0,
+        node_type_counts=type_counts,
+        high_risk_entities=high_risk.scalar() or 0,
+        syndicate_clusters=syndicate.scalar() or 0,
+    )
+
+
 @router.get("/network/{node_id}", response_model=NetworkResponse)
 async def get_network(
     node_id: str,

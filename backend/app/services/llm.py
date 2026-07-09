@@ -254,6 +254,68 @@ class LLMService:
 
         return content
 
+    async def vision_analyze(
+        self,
+        image_base64: str,
+        prompt: str,
+        system_instruction: str | None = None,
+        mime_type: str = "image/jpeg",
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+    ) -> LLMResponse:
+        """
+        Analyze an image using Gemini Vision (multimodal).
+        
+        Used for:
+        - WhatsApp/SMS screenshot OCR → text extraction
+        - Counterfeit currency feature analysis
+        - Document/evidence image analysis
+        """
+        import base64
+        
+        start_time = time.monotonic()
+        
+        try:
+            # Decode base64 to bytes
+            image_bytes = base64.b64decode(image_base64)
+            
+            # Build multimodal content parts
+            parts = [
+                genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                genai_types.Part.from_text(text=prompt),
+            ]
+            
+            config = genai_types.GenerateContentConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+            if system_instruction:
+                config.system_instruction = system_instruction
+            
+            response = await self.gemini_client.aio.models.generate_content(
+                model=self.settings.GEMINI_MODEL,
+                contents=parts,
+                config=config,
+            )
+            
+            content = response.text
+            if not content:
+                raise ValueError("Gemini Vision returned empty response")
+            
+            elapsed_ms = int((time.monotonic() - start_time) * 1000)
+            
+            return LLMResponse(
+                content=content,
+                model_used=f"{self.settings.GEMINI_MODEL}-vision",
+                latency_ms=elapsed_ms,
+                was_fallback=False,
+            )
+            
+        except Exception as e:
+            elapsed_ms = int((time.monotonic() - start_time) * 1000)
+            logger.error(f"Gemini Vision analysis failed: {e}")
+            raise
+
     async def embed(self, text: str, model: str = "text-embedding-004") -> list[float]:
         """
         Generate a text embedding vector using Gemini's embedding API.

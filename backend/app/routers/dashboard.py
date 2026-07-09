@@ -143,3 +143,166 @@ async def get_threat_feed(
     # Sort by timestamp descending
     items.sort(key=lambda x: x.timestamp, reverse=True)
     return items[:limit]
+
+
+# ---------- Analytics ----------
+
+class ChartDataPoint(BaseModel):
+    label: str
+    value: int
+    color: str | None = None
+
+
+class DailyTrend(BaseModel):
+    date: str
+    cases: int
+    scams: int
+
+
+class AnalyticsResponse(BaseModel):
+    scam_type_distribution: list[ChartDataPoint]
+    risk_level_breakdown: list[ChartDataPoint]
+    daily_trend: list[DailyTrend]
+    entity_type_breakdown: list[ChartDataPoint]
+    top_entities: list[dict]
+
+
+SCAM_COLORS = {
+    "Digital Arrest": "#ef4444",
+    "KYC Fraud": "#f97316",
+    "Investment Scam": "#eab308",
+    "Phishing": "#3b82f6",
+    "OTP Fraud": "#8b5cf6",
+    "Fake Lottery": "#ec4899",
+    "Tech Support Scam": "#14b8a6",
+    "Job Fraud": "#06b6d4",
+    "Loan Scam": "#f59e0b",
+}
+
+RISK_COLORS = {
+    "critical": "#ef4444",
+    "high": "#f97316",
+    "medium": "#eab308",
+    "low": "#22c55e",
+    "unknown": "#6b7280",
+}
+
+ENTITY_COLORS = {
+    "phone": "#3b82f6",
+    "bank_account": "#f59e0b",
+    "upi_id": "#8b5cf6",
+    "email": "#14b8a6",
+    "url": "#a855f7",
+    "person": "#f43f5e",
+    "organization": "#6366f1",
+    "location": "#10b981",
+    "case": "#06b6d4",
+    "amount": "#eab308",
+}
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+async def get_analytics(
+    db: AsyncSession = Depends(get_db),
+):
+    """Chart-ready analytics data for the Command Center dashboard."""
+    from app.database import GraphEdge
+    from datetime import datetime, timedelta, timezone
+
+    # 1. Scam type distribution
+    scam_dist_stmt = (
+        select(Case.scam_type, func.count(Case.id).label("cnt"))
+        .where(Case.scam_type.is_not(None))
+        .group_by(Case.scam_type)
+        .order_by(func.count(Case.id).desc())
+    )
+    scam_dist = await db.execute(scam_dist_stmt)
+    scam_type_distribution = [
+        ChartDataPoint(
+            label=row[0],
+            value=row[1],
+            color=SCAM_COLORS.get(row[0], "#6b7280"),
+        )
+        for row in scam_dist.all()
+    ]
+
+    # 2. Risk level breakdown
+    risk_stmt = (
+        select(Case.risk_level, func.count(Case.id).label("cnt"))
+        .group_by(Case.risk_level)
+        .order_by(func.count(Case.id).desc())
+    )
+    risk_result = await db.execute(risk_stmt)
+    risk_level_breakdown = [
+        ChartDataPoint(
+            label=row[0] or "unknown",
+            value=row[1],
+            color=RISK_COLORS.get(row[0] or "unknown", "#6b7280"),
+        )
+        for row in risk_result.all()
+    ]
+
+    # 3. Daily trend (last 14 days)
+    fourteen_days_ago = datetime.now(timezone.utc) - timedelta(days=14)
+    daily_stmt = (
+        select(
+            func.date(Case.created_at).label("day"),
+            func.count(Case.id).label("total"),
+            func.count(Case.id).filter(Case.scam_type.is_not(None)).label("scams"),
+        )
+        .where(Case.created_at >= fourteen_days_ago)
+        .group_by(func.date(Case.created_at))
+        .order_by(func.date(Case.created_at))
+    )
+    daily_result = await db.execute(daily_stmt)
+    daily_trend = [
+        DailyTrend(
+            date=str(row[0]),
+            cases=row[1],
+            scams=row[2],
+        )
+        for row in daily_result.all()
+    ]
+
+    # 4. Entity type breakdown
+    entity_stmt = (
+        select(GraphNode.node_type, func.count(GraphNode.id).label("cnt"))
+        .where(GraphNode.node_type != "case")
+        .group_by(GraphNode.node_type)
+        .order_by(func.count(GraphNode.id).desc())
+    )
+    entity_result = await db.execute(entity_stmt)
+    entity_type_breakdown = [
+        ChartDataPoint(
+            label=row[0],
+            value=row[1],
+            color=ENTITY_COLORS.get(row[0], "#6b7280"),
+        )
+        for row in entity_result.all()
+    ]
+
+    # 5. Top risky entities
+    top_stmt = (
+        select(GraphNode)
+        .where(GraphNode.risk_score > 0.5, GraphNode.node_type != "case")
+        .order_by(GraphNode.risk_score.desc())
+        .limit(10)
+    )
+    top_result = await db.execute(top_stmt)
+    top_entities = [
+        {
+            "label": n.label,
+            "type": n.node_type,
+            "risk_score": round(n.risk_score, 3) if n.risk_score else 0,
+        }
+        for n in top_result.scalars().all()
+    ]
+
+    return AnalyticsResponse(
+        scam_type_distribution=scam_type_distribution,
+        risk_level_breakdown=risk_level_breakdown,
+        daily_trend=daily_trend,
+        entity_type_breakdown=entity_type_breakdown,
+        top_entities=top_entities,
+    )
+

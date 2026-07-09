@@ -16,9 +16,13 @@ import {
   BarChart3,
   Users,
   Zap,
+  PieChart,
+  Fingerprint,
 } from "lucide-react";
-import { getDashboardMetrics, getThreatFeed } from "@/lib/api";
-import type { DashboardMetrics, ThreatFeedItem, RiskLevel } from "@/lib/types";
+import { getDashboardMetrics, getThreatFeed, getAnalytics } from "@/lib/api";
+import type { DashboardMetrics, ThreatFeedItem } from "@/lib/types";
+import type { AnalyticsData } from "@/lib/api";
+import { DonutChart, HorizontalBarChart, TopEntitiesTable } from "@/components/charts/dashboard-charts";
 
 // Stagger animation variants
 const container = {
@@ -76,25 +80,34 @@ function FeatureCard({
   description,
   icon: Icon,
   gradient,
+  badge,
 }: {
   href: string;
   title: string;
   description: string;
   icon: React.ElementType;
   gradient: string;
+  badge?: string;
 }) {
   return (
     <motion.div variants={item}>
       <Link href={href} className="block group">
         <div className="glass-card glass-card-hover p-6 h-full">
-          <div
-            className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-            style={{
-              background: gradient,
-              boxShadow: `0 8px 24px ${gradient.includes("cyan") ? "rgba(6,182,212,0.2)" : gradient.includes("violet") ? "rgba(139,92,246,0.2)" : "rgba(249,115,22,0.2)"}`,
-            }}
-          >
-            <Icon className="h-6 w-6 text-white" />
+          <div className="flex items-start justify-between mb-4">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-xl"
+              style={{
+                background: gradient,
+                boxShadow: `0 8px 24px ${gradient.includes("cyan") ? "rgba(6,182,212,0.2)" : gradient.includes("violet") ? "rgba(139,92,246,0.2)" : "rgba(249,115,22,0.2)"}`,
+              }}
+            >
+              <Icon className="h-6 w-6 text-white" />
+            </div>
+            {badge && (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                {badge}
+              </span>
+            )}
           </div>
           <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-cyan-400 transition-colors">
             {title}
@@ -181,17 +194,20 @@ function ThreatFeedCard({ items }: { items: ThreatFeedItem[] }) {
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [threats, setThreats] = useState<ThreatFeedItem[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [m, t] = await Promise.all([
+        const [m, t, a] = await Promise.all([
           getDashboardMetrics(),
           getThreatFeed(15),
+          getAnalytics(),
         ]);
         setMetrics(m);
         setThreats(t);
+        setAnalytics(a);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       } finally {
@@ -273,6 +289,63 @@ export default function DashboardPage() {
           />
         </div>
 
+        {/* Analytics Charts Row */}
+        {analytics && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Scam Type Distribution */}
+            <motion.div variants={item} className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <PieChart className="h-4 w-4 text-cyan-400" />
+                <h3 className="text-sm font-semibold text-white">
+                  Scam Type Distribution
+                </h3>
+              </div>
+              {analytics.scam_type_distribution.length > 0 ? (
+                <DonutChart
+                  data={analytics.scam_type_distribution}
+                  title="Scam Types"
+                  size={180}
+                />
+              ) : (
+                <p className="text-xs text-gray-600 text-center py-8">
+                  Analyze cases to populate chart
+                </p>
+              )}
+            </motion.div>
+
+            {/* Entity Type Breakdown */}
+            <motion.div variants={item} className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Fingerprint className="h-4 w-4 text-violet-400" />
+                <h3 className="text-sm font-semibold text-white">
+                  Entity Breakdown
+                </h3>
+              </div>
+              {analytics.entity_type_breakdown.length > 0 ? (
+                <HorizontalBarChart
+                  data={analytics.entity_type_breakdown}
+                  title="Entities"
+                />
+              ) : (
+                <p className="text-xs text-gray-600 text-center py-8">
+                  Entities populate as cases are analyzed
+                </p>
+              )}
+            </motion.div>
+
+            {/* Top Risk Entities */}
+            <motion.div variants={item} className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <h3 className="text-sm font-semibold text-white">
+                  High-Risk Entities
+                </h3>
+              </div>
+              <TopEntitiesTable entities={analytics.top_entities} />
+            </motion.div>
+          </div>
+        )}
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Feature Cards */}
@@ -280,23 +353,26 @@ export default function DashboardPage() {
             <FeatureCard
               href="/detect"
               title="Detect"
-              description="Paste a suspicious message. NETRA classifies scam type, detects psychological tactics, and maps applicable legal sections."
+              description="Paste text, upload screenshots, or scan banknotes. Multi-modal AI analysis with Kill Chain decomposition."
               icon={Search}
               gradient="linear-gradient(135deg, #06b6d4, #0891b2)"
+              badge="Multi-Modal"
             />
             <FeatureCard
               href="/investigate"
               title="Investigate"
-              description="Search by phone number, UPI ID, or bank account. Explore the connected fraud network through an interactive graph."
+              description="Explore auto-populated fraud networks. Entity extraction feeds the graph in real-time."
               icon={Network}
               gradient="linear-gradient(135deg, #8b5cf6, #7c3aed)"
+              badge="Auto-Graph"
             />
             <FeatureCard
               href="/simulate"
               title="Simulate"
-              description="Experience a realistic AI-generated scam in a safe environment. Build psychological immunity against digital threats."
+              description="AI-powered adversarial simulations. Build psychological immunity against digital threats."
               icon={Swords}
               gradient="linear-gradient(135deg, #f97316, #ea580c)"
+              badge="Adversarial AI"
             />
           </div>
 
@@ -314,12 +390,13 @@ export default function DashboardPage() {
               Agent System Status
             </h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
               { name: "Detection Agent", status: "ready", model: "Gemini 2.5 Flash" },
-              { name: "Analysis Agent", status: "ready", model: "Graph Engine" },
+              { name: "Entity Extraction", status: "ready", model: "Regex + LLM NER" },
+              { name: "Graph Engine", status: "ready", model: "Auto-Population" },
+              { name: "Vision OCR", status: "ready", model: "Gemini Multimodal" },
               { name: "Simulation Agent", status: "ready", model: "Adversarial AI" },
-              { name: "Compliance Engine", status: "ready", model: "Rule-based" },
             ].map((agent) => (
               <div
                 key={agent.name}

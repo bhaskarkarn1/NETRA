@@ -33,6 +33,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db, Case, LegalMapping, ScamPattern, AuditLog
 from app.agents.detection import DetectionAgent
 from app.services.llm import get_llm_service
+from app.services.entity_extraction import EntityExtractor
+from app.services.graph_population import GraphPopulationService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -67,6 +69,20 @@ class KillChainStage(BaseModel):
     severity: str = "none"
 
 
+class EntityInfo(BaseModel):
+    entity_type: str
+    value: str
+    confidence: float
+    source: str
+
+
+class GraphIntel(BaseModel):
+    nodes_created: int = 0
+    edges_created: int = 0
+    nodes_linked: int = 0
+    entities_extracted: list[EntityInfo] = []
+
+
 class DetectResponse(BaseModel):
     id: str
     scam_type: str | None
@@ -82,6 +98,7 @@ class DetectResponse(BaseModel):
     language: str
     model_used: str
     processing_time_ms: int
+    graph_intel: GraphIntel | None = None
 
 
 class CaseSummary(BaseModel):
@@ -109,6 +126,44 @@ class IntelligenceResponse(BaseModel):
     entity_overlaps: list[dict]
     syndicate_indicators: list[str]
     total_linked_cases: int
+
+
+class ImageAnalyzeRequest(BaseModel):
+    image_base64: str = Field(..., description="Base64-encoded image data")
+    mime_type: str = Field(default="image/jpeg", description="MIME type of the image")
+    input_type: str = Field(default="screenshot", description="Type: 'screenshot', 'document'")
+
+
+class ImageAnalyzeResponse(BaseModel):
+    extracted_text: str
+    detection_result: DetectResponse | None = None
+    ocr_confidence: float = 0.0
+    image_description: str = ""
+
+
+class CounterfeitRequest(BaseModel):
+    image_base64: str = Field(..., description="Base64-encoded banknote image")
+    mime_type: str = Field(default="image/jpeg")
+    denomination: str | None = Field(default=None, description="Expected denomination (₹100, ₹200, ₹500, ₹2000)")
+
+
+class SecurityFeature(BaseModel):
+    feature_name: str
+    status: str  # 'pass', 'fail', 'uncertain', 'not_visible'
+    confidence: float
+    description: str
+
+
+class CounterfeitResponse(BaseModel):
+    verdict: str  # 'genuine', 'suspect', 'counterfeit', 'inconclusive'
+    confidence: float
+    denomination_detected: str | None
+    security_features: list[SecurityFeature]
+    overall_assessment: str
+    rbi_guidelines: str
+    evidence_hash: str
+    model_used: str
+    processing_time_ms: int
 
 
 # ---------- Helpers ----------
@@ -248,7 +303,41 @@ async def analyze_text(
     db.add(case)
     await db.flush()
 
-    # 6. Log to audit trail
+    # 6. Auto-extract entities and populate fraud network graph
+    graph_intel = GraphIntel()
+    try:
+        llm = get_llm_service()
+        extractor = EntityExtractor(llm_service=llm)
+        extraction_result = await extractor.extract(request.text, use_llm=True)
+
+        if extraction_result.entities:
+            graph_service = GraphPopulationService(db)
+            pop_result = await graph_service.populate_from_case(
+                case_id=case.id,
+                scam_type=detection_result.get("scam_type"),
+                risk_level=detection_result.get("risk_level"),
+                confidence=detection_result.get("confidence", 0.0),
+                extraction_result=extraction_result,
+            )
+            graph_intel = GraphIntel(
+                nodes_created=pop_result["nodes_created"],
+                edges_created=pop_result["edges_created"],
+                nodes_linked=pop_result["nodes_linked"],
+                entities_extracted=[
+                    EntityInfo(
+                        entity_type=e.entity_type,
+                        value=e.value,
+                        confidence=e.confidence,
+                        source=e.source,
+                    )
+                    for e in extraction_result.entities
+                ],
+            )
+            logger.info(f"Graph auto-populated: {pop_result}")
+    except Exception as e:
+        logger.warning(f"Entity extraction/graph population failed (non-critical): {e}")
+
+    # 7. Log to audit trail
     audit = AuditLog(
         case_id=case.id,
         agent_name="detection",
@@ -279,6 +368,7 @@ async def analyze_text(
         language=detection_result.get("language", "en"),
         model_used=detection_result.get("model_used", ""),
         processing_time_ms=elapsed_ms,
+        graph_intel=graph_intel,
     )
 
 
@@ -869,3 +959,458 @@ async def get_intelligence(
         syndicate_indicators=syndicate_indicators,
         total_linked_cases=len(related_cases),
     )
+
+
+# ---------- Evolution 4: Multi-Modal Image OCR ----------
+
+IMAGE_OCR_PROMPT = """Extract ALL text visible in this image. This is a screenshot of a potentially fraudulent message (SMS, WhatsApp, email, social media, or notification).
+
+RULES:
+1. Extract the text EXACTLY as it appears — preserve spelling errors, unusual formatting, and mixed languages
+2. Include sender information, timestamps, URLs, phone numbers, and any UI elements with text
+3. If the image contains multiple messages, extract all of them in order
+4. If text is partially visible or blurry, extract what you can and mark uncertain parts with [unclear]
+5. Do NOT add any commentary or analysis — ONLY output the extracted text
+6. If the image does not contain any text, respond with: [NO TEXT DETECTED]"""
+
+
+@router.post("/image", response_model=ImageAnalyzeResponse)
+async def analyze_image(
+    request: ImageAnalyzeRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Multi-modal scam detection: Extract text from a screenshot/image,
+    then run the full detection pipeline on the extracted text.
+    
+    Supports: WhatsApp screenshots, SMS screenshots, email screenshots,
+    social media DMs, notification screenshots.
+    """
+    import base64
+
+    start_time = time.time()
+    llm = get_llm_service()
+
+    # Validate base64
+    try:
+        decoded = base64.b64decode(request.image_base64)
+        if len(decoded) > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=400, detail="Image too large (max 10MB)")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=400, detail=f"Invalid base64 image data: {e}")
+
+    # Step 1: OCR via Gemini Vision
+    try:
+        ocr_response = await llm.vision_analyze(
+            image_base64=request.image_base64,
+            prompt=IMAGE_OCR_PROMPT,
+            system_instruction="You are a precise OCR engine. Extract text exactly as shown.",
+            mime_type=request.mime_type,
+            temperature=0.1,
+        )
+        extracted_text = ocr_response.content.strip()
+    except Exception as e:
+        logger.error(f"Image OCR failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Image text extraction failed: {e}")
+
+    if not extracted_text or extracted_text == "[NO TEXT DETECTED]":
+        # Get image description instead
+        try:
+            desc_response = await llm.vision_analyze(
+                image_base64=request.image_base64,
+                prompt="Describe what you see in this image in 2-3 sentences.",
+                mime_type=request.mime_type,
+                temperature=0.3,
+            )
+            return ImageAnalyzeResponse(
+                extracted_text="",
+                detection_result=None,
+                ocr_confidence=0.0,
+                image_description=desc_response.content,
+            )
+        except Exception:
+            return ImageAnalyzeResponse(
+                extracted_text="",
+                detection_result=None,
+                ocr_confidence=0.0,
+                image_description="Could not analyze the image.",
+            )
+
+    # Step 2: Run full detection pipeline on extracted text
+    detection_result = None
+    try:
+        # Use the internal analyze logic
+        detect_request = DetectRequest(text=extracted_text, input_type="screenshot")
+        detection_result = await analyze_text(detect_request, db)
+    except Exception as e:
+        logger.warning(f"Detection on extracted text failed: {e}")
+
+    elapsed_ms = int((time.time() - start_time) * 1000)
+
+    # Log
+    audit = AuditLog(
+        agent_name="vision_ocr",
+        action="image_text_extraction",
+        input_summary=f"Image ({request.mime_type}, {len(decoded)} bytes)",
+        output_summary=f"Extracted {len(extracted_text)} chars, {'analyzed' if detection_result else 'no analysis'}",
+        model_used=ocr_response.model_used,
+        latency_ms=elapsed_ms,
+        status="success",
+    )
+    db.add(audit)
+    await db.commit()
+
+    return ImageAnalyzeResponse(
+        extracted_text=extracted_text,
+        detection_result=detection_result,
+        ocr_confidence=0.9 if len(extracted_text) > 20 else 0.5,
+        image_description=f"Screenshot analyzed: {len(extracted_text)} characters extracted",
+    )
+
+
+# ---------- Evolution 5: Counterfeit Currency Analysis ----------
+
+COUNTERFEIT_ANALYSIS_PROMPT = """Analyze this banknote image for authenticity indicators based on Reserve Bank of India (RBI) security features.
+
+For each security feature, provide your assessment:
+
+MANDATORY FEATURES TO CHECK:
+1. **Watermark**: Mahatma Gandhi portrait watermark and electrotype denomination
+2. **Security Thread**: Color-shifting/windowed security thread with "RBI" and denomination
+3. **Latent Image**: Denomination numeral visible when held at 45°
+4. **Microlettering**: "RBI" and denomination in tiny text along the security thread
+5. **Intaglio Printing**: Raised printing feel on key elements (portrait, denomination, RBI seal)
+6. **Color-Shifting Ink**: Denomination numeral changes color when tilted (₹200, ₹500, ₹2000)
+7. **See-Through Register**: Denomination numeral visible when held against light
+8. **Fluorescence**: Features visible under UV light
+9. **Optically Variable Ink**: Color-changing features
+10. **Number Panel**: Ascending font size serial numbers
+
+RESPOND IN VALID JSON:
+{
+    "denomination_detected": "₹500" or null if unclear,
+    "verdict": "genuine" | "suspect" | "counterfeit" | "inconclusive",
+    "confidence": 0.0-1.0,
+    "features": [
+        {
+            "feature_name": "Watermark",
+            "status": "pass" | "fail" | "uncertain" | "not_visible",
+            "confidence": 0.0-1.0,
+            "description": "Brief explanation"
+        }
+    ],
+    "overall_assessment": "Detailed 2-3 sentence summary",
+    "rbi_guidelines": "What RBI says to do in this case"
+}
+
+IMPORTANT: Be conservative — if you cannot clearly see a feature, mark it "not_visible" rather than "fail". A photo may not capture all security features. Only mark "counterfeit" if multiple features clearly fail."""
+
+
+@router.post("/counterfeit", response_model=CounterfeitResponse)
+async def analyze_counterfeit(
+    request: CounterfeitRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Analyze a banknote image for counterfeit indicators using Gemini Vision.
+    Checks against RBI security feature guidelines.
+    """
+    import base64
+
+    start_time = time.time()
+    llm = get_llm_service()
+
+    # Validate
+    try:
+        decoded = base64.b64decode(request.image_base64)
+        if len(decoded) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Image too large (max 10MB)")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=400, detail=f"Invalid base64 image data: {e}")
+
+    # Evidence hash
+    evidence_hash = hashlib.sha256(decoded).hexdigest()
+
+    # Analyze with Gemini Vision
+    try:
+        prompt = COUNTERFEIT_ANALYSIS_PROMPT
+        if request.denomination:
+            prompt += f"\n\nEXPECTED DENOMINATION: {request.denomination}"
+
+        response = await llm.vision_analyze(
+            image_base64=request.image_base64,
+            prompt=prompt,
+            system_instruction="You are an expert forensic document examiner specializing in Indian currency authentication per RBI Master Direction 2025.",
+            mime_type=request.mime_type,
+            temperature=0.2,
+        )
+
+        # Parse JSON response
+        analysis = response.parse_json()
+        if not analysis:
+            raise ValueError("Could not parse analysis response as JSON")
+
+    except Exception as e:
+        logger.error(f"Counterfeit analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Currency analysis failed: {e}")
+
+    elapsed_ms = int((time.time() - start_time) * 1000)
+
+    # Build response
+    features = []
+    for f in analysis.get("features", []):
+        features.append(SecurityFeature(
+            feature_name=f.get("feature_name", "Unknown"),
+            status=f.get("status", "uncertain"),
+            confidence=f.get("confidence", 0.5),
+            description=f.get("description", ""),
+        ))
+
+    # RBI guidelines for counterfeit notes
+    rbi_text = analysis.get("rbi_guidelines", "")
+    if not rbi_text:
+        verdict = analysis.get("verdict", "inconclusive")
+        if verdict in ("counterfeit", "suspect"):
+            rbi_text = (
+                "As per RBI Master Direction 2025: (1) Do NOT return the note to the presenter. "
+                "(2) Issue a receipt. (3) File Counterfeit Currency Report (CCR) via FICTC portal. "
+                "(4) Forward the note to the nearest police station or RBI Issue Office. "
+                "Helpline: 14440 | RBI FICN Portal: https://paisaboltahai.rbi.org.in"
+            )
+        else:
+            rbi_text = (
+                "The note appears genuine based on visible features. For definitive verification, "
+                "use a UV lamp and magnifying glass, or visit your nearest bank branch. "
+                "Learn more: https://paisaboltahai.rbi.org.in"
+            )
+
+    # Audit
+    audit = AuditLog(
+        agent_name="counterfeit_analyzer",
+        action="currency_authentication",
+        input_summary=f"Banknote image ({len(decoded)} bytes), denomination: {request.denomination or 'auto'}",
+        output_summary=f"Verdict: {analysis.get('verdict', 'inconclusive')}, {len(features)} features checked",
+        model_used=response.model_used,
+        latency_ms=elapsed_ms,
+        status="success",
+    )
+    db.add(audit)
+    await db.commit()
+
+    return CounterfeitResponse(
+        verdict=analysis.get("verdict", "inconclusive"),
+        confidence=analysis.get("confidence", 0.5),
+        denomination_detected=analysis.get("denomination_detected"),
+        security_features=features,
+        overall_assessment=analysis.get("overall_assessment", "Analysis complete."),
+        rbi_guidelines=rbi_text,
+        evidence_hash=evidence_hash,
+        model_used=response.model_used,
+        processing_time_ms=elapsed_ms,
+    )
+
+
+# ---------- Evolution 6: MHA/NCRB Alert Generation ----------
+
+class AlertResponse(BaseModel):
+    case_id: str
+    alert_type: str  # "I4C_ALERT", "NCRB_COMPLAINT", "FIR_DRAFT"
+    generated_text: str
+    sections: list[dict]
+    recommended_actions: list[str]
+    severity: str
+    generated_at: str
+
+
+@router.get("/{case_id}/alert", response_model=AlertResponse)
+async def generate_alert(
+    case_id: str,
+    alert_type: str = "I4C_ALERT",
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate a formal MHA/NCRB/I4C-format alert document for a case.
+    Used for filing with Indian Cyber Crime Coordination Centre.
+    """
+    # Fetch case
+    stmt = select(Case).where(Case.id == case_id)
+    result = await db.execute(stmt)
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Parse stored analysis
+    analysis = json.loads(case.analysis_json) if case.analysis_json else {}
+
+    # Build alert sections
+    now = datetime.now(timezone.utc)
+    sections = []
+
+    # Section 1: Incident Summary
+    scam_type = case.scam_type or "Unknown"
+    confidence = case.confidence or 0.0
+    risk_level = case.risk_level or "unknown"
+
+    sections.append({
+        "title": "1. INCIDENT SUMMARY",
+        "content": (
+            f"Incident Type: Cyber Fraud - {scam_type}\n"
+            f"Risk Classification: {risk_level.upper()}\n"
+            f"AI Confidence Score: {confidence * 100:.1f}%\n"
+            f"Detection Timestamp: {case.created_at.isoformat() if case.created_at else 'N/A'}\n"
+            f"Evidence Hash (SHA-256): {case.evidence_hash or 'N/A'}\n"
+            f"NETRA Case Reference: {case_id}"
+        ),
+    })
+
+    # Section 2: Verbatim Content
+    sections.append({
+        "title": "2. VERBATIM FRAUDULENT CONTENT",
+        "content": case.input_text[:2000] if case.input_text else "N/A",
+    })
+
+    # Section 3: Kill Chain Analysis
+    kill_chain = analysis.get("kill_chain", [])
+    if kill_chain:
+        kc_text = ""
+        for stage in kill_chain:
+            name = stage.get("stage_name", "Unknown")
+            evidence = stage.get("evidence", "N/A")
+            kc_text += f"• {name}: {evidence}\n"
+        sections.append({
+            "title": "3. KILL CHAIN DECOMPOSITION (NETRA™ Framework)",
+            "content": kc_text.strip(),
+        })
+
+    # Section 4: Entities Extracted
+    from app.database import GraphNode, GraphEdge
+    entity_stmt = (
+        select(GraphNode)
+        .join(GraphEdge, GraphEdge.source_id == GraphNode.id)
+        .join(GraphNode.__class__, GraphEdge.target_id == GraphNode.id)  # noqa
+        .where(GraphNode.label == case_id, GraphNode.node_type == "case")
+    )
+    # Simpler: find all edges for this case
+    case_node_stmt = select(GraphNode).where(
+        GraphNode.label == case_id, GraphNode.node_type == "case"
+    )
+    case_node_result = await db.execute(case_node_stmt)
+    case_node = case_node_result.scalar_one_or_none()
+
+    entities_text = ""
+    if case_node:
+        edge_stmt = select(GraphEdge).where(GraphEdge.source_id == case_node.id)
+        edge_result = await db.execute(edge_stmt)
+        edges = edge_result.scalars().all()
+
+        target_ids = [e.target_id for e in edges]
+        if target_ids:
+            ent_stmt = select(GraphNode).where(GraphNode.id.in_(target_ids))
+            ent_result = await db.execute(ent_stmt)
+            entities = ent_result.scalars().all()
+            for ent in entities:
+                entities_text += f"• {ent.node_type.upper()}: {ent.label} (Risk Score: {ent.risk_score or 0:.2f})\n"
+
+    if entities_text:
+        sections.append({
+            "title": "4. EXTRACTED IDENTIFIERS (Auto-NER)",
+            "content": entities_text.strip(),
+        })
+
+    # Section 5: Legal Sections
+    legal_sections = analysis.get("legal_sections", [])
+    if legal_sections:
+        legal_text = ""
+        for ls in legal_sections:
+            section = ls.get("section", "")
+            desc = ls.get("description", "")
+            legal_text += f"• {section}: {desc}\n"
+        sections.append({
+            "title": "5. APPLICABLE LEGAL PROVISIONS",
+            "content": legal_text.strip(),
+        })
+
+    # Section 6: AI Reasoning
+    ai_reasoning = analysis.get("ai_reasoning", "")
+    if ai_reasoning:
+        sections.append({
+            "title": "6. AI ANALYSIS RATIONALE",
+            "content": ai_reasoning,
+        })
+
+    # Section 7: Tactics
+    tactics = analysis.get("tactics_detected", [])
+    if tactics:
+        tactic_text = ""
+        for t in tactics:
+            name = t.get("tactic_name", "Unknown")
+            evidence = t.get("evidence_text", "N/A")
+            tactic_text += f"• {name}: \"{evidence}\"\n"
+        sections.append({
+            "title": "7. PSYCHOLOGICAL MANIPULATION TACTICS DETECTED",
+            "content": tactic_text.strip(),
+        })
+
+    # Recommended actions
+    recommended_actions = [
+        "File a complaint on National Cyber Crime Reporting Portal (cybercrime.gov.in)",
+        "Report the incident to the local police station with this alert document",
+        "Block and report the sender's phone number/UPI ID with your telecom provider/bank",
+        f"If financial loss occurred, immediately call 1930 (National Cyber Crime Helpline)",
+        "Preserve all evidence (screenshots, call recordings, transaction receipts)",
+    ]
+
+    if risk_level in ("critical", "high"):
+        recommended_actions.insert(0, "⚠️ IMMEDIATE ACTION REQUIRED — Contact 1930 helpline NOW")
+        recommended_actions.append("Request immediate freeze on linked bank accounts via the concerned bank's fraud department")
+
+    # Build full text
+    header = (
+        "=" * 72 + "\n"
+        "INDIAN CYBER CRIME COORDINATION CENTRE (I4C)\n"
+        "MINISTRY OF HOME AFFAIRS, GOVERNMENT OF INDIA\n"
+        "=" * 72 + "\n"
+        f"CYBER CRIME ALERT — AUTO-GENERATED BY NETRA AI v3.0\n"
+        f"Alert Type: {alert_type}\n"
+        f"Generated: {now.strftime('%d-%b-%Y %H:%M:%S')} UTC\n"
+        f"Classification: {'URGENT' if risk_level in ('critical', 'high') else 'STANDARD'}\n"
+        "=" * 72 + "\n\n"
+    )
+
+    body = ""
+    for s in sections:
+        body += f"\n{s['title']}\n{'-' * len(s['title'])}\n{s['content']}\n"
+
+    actions_text = "\n\nRECOMMENDED ACTIONS\n" + "-" * 19 + "\n"
+    for i, action in enumerate(recommended_actions, 1):
+        actions_text += f"{i}. {action}\n"
+
+    footer = (
+        "\n\n" + "=" * 72 + "\n"
+        "DISCLAIMER: This alert was auto-generated by NETRA AI for informational purposes.\n"
+        "It should be verified by a human investigator before formal legal proceedings.\n"
+        "NETRA AI — National Electronic Threat Recognition & Analysis\n"
+        "=" * 72 + "\n"
+    )
+
+    full_text = header + body + actions_text + footer
+
+    # Determine severity
+    severity_map = {"critical": "P1-CRITICAL", "high": "P2-HIGH", "medium": "P3-MEDIUM", "low": "P4-LOW"}
+    severity = severity_map.get(risk_level, "P3-MEDIUM")
+
+    return AlertResponse(
+        case_id=case_id,
+        alert_type=alert_type,
+        generated_text=full_text,
+        sections=sections,
+        recommended_actions=recommended_actions,
+        severity=severity,
+        generated_at=now.isoformat(),
+    )
+
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -20,8 +20,11 @@ import {
   ChevronUp,
   Crosshair,
   Target,
+  Network,
+  Mic,
+  MicOff,
 } from "lucide-react";
-import { analyzeText, getDossierUrl, getIntelligence } from "@/lib/api";
+import { analyzeText, analyzeImage, analyzeCounterfeit, getDossierUrl, getIntelligence } from "@/lib/api";
 import type {
   DetectResponse,
   RiskLevel,
@@ -29,6 +32,7 @@ import type {
   IntelligenceResponse,
 } from "@/lib/types";
 import { RISK_BG_CLASSES } from "@/lib/types";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 // ---------- Kill Chain Stage Config ----------
 
@@ -475,6 +479,18 @@ export default function DetectPage() {
   const [result, setResult] = useState<DetectResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"text" | "screenshot" | "counterfeit">("text");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMime, setImageMime] = useState<string>("image/jpeg");
+  const [counterfeitResult, setCounterfeitResult] = useState<Awaited<ReturnType<typeof analyzeCounterfeit>> | null>(null);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
+
+  // Voice input
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((prev) => prev ? prev + " " + text : text);
+  }, []);
+  const { isListening, isSupported: voiceSupported, interimTranscript, toggleListening } = useVoiceInput(handleVoiceTranscript);
 
   const handleAnalyze = async () => {
     if (!input.trim() || input.trim().length < 5) return;
@@ -496,6 +512,68 @@ export default function DetectPage() {
     }
   };
 
+  const handleImageUpload = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image too large (max 10MB)");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setImagePreview(dataUrl);
+      // Extract base64 from data URL
+      const base64 = dataUrl.split(",")[1];
+      setImageBase64(base64);
+      setImageMime(file.type || "image/jpeg");
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageAnalyze = async () => {
+    if (!imageBase64) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setExtractedText(null);
+
+    try {
+      const response = await analyzeImage(imageBase64, imageMime);
+      setExtractedText(response.extracted_text || response.image_description);
+      if (response.detection_result) {
+        setResult(response.detection_result);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCounterfeitAnalyze = async () => {
+    if (!imageBase64) return;
+    setLoading(true);
+    setError(null);
+    setCounterfeitResult(null);
+
+    try {
+      const response = await analyzeCounterfeit(imageBase64, imageMime);
+      setCounterfeitResult(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Counterfeit analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      handleImageUpload(file);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -509,9 +587,9 @@ export default function DetectPage() {
           <h1 className="text-2xl font-bold text-white">Detect</h1>
         </div>
         <p className="text-gray-400 text-sm max-w-2xl">
-          Paste a suspicious message, call transcript, or URL. NETRA decomposes
-          it through a 6-stage Kill Chain, detects psychological manipulation
-          tactics, maps legal sections, and generates forensic evidence dossiers.
+          Paste a suspicious message, upload a screenshot, or scan a banknote.
+          NETRA decomposes it through a 6-stage Kill Chain, detects manipulation
+          tactics, maps legal sections, and generates forensic evidence.
         </p>
       </motion.div>
 
@@ -522,68 +600,275 @@ export default function DetectPage() {
           animate={{ opacity: 1, x: 0 }}
           className="glass-card p-6 space-y-4"
         >
-          {/* Input type selector */}
+          {/* Mode selector */}
           <div className="flex gap-2">
-            {(["text", "transcript", "url"] as const).map((type) => (
+            {([
+              { key: "text" as const, label: "📝 Message", desc: "Paste text" },
+              { key: "screenshot" as const, label: "📸 Screenshot", desc: "Upload image" },
+              { key: "counterfeit" as const, label: "💵 Counterfeit", desc: "Scan note" },
+            ]).map(({ key, label }) => (
               <button
-                key={type}
-                onClick={() => setInputType(type)}
+                key={key}
+                onClick={() => { setMode(key); setError(null); setResult(null); setCounterfeitResult(null); setExtractedText(null); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  inputType === type
+                  mode === key
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
                     : "bg-white/[0.04] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08]"
                 }`}
               >
-                {type === "text"
-                  ? "Message"
-                  : type === "transcript"
-                    ? "Call Transcript"
-                    : "URL"}
+                {label}
               </button>
             ))}
           </div>
 
-          {/* Text input */}
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              inputType === "text"
-                ? "Paste suspicious WhatsApp/SMS message here..."
-                : inputType === "transcript"
-                  ? "Paste the call transcript here..."
-                  : "Paste the suspicious URL here..."
-            }
-            className="w-full h-64 bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm text-gray-200 placeholder:text-gray-600 resize-none focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all font-[family-name:var(--font-mono)]"
-          />
+          {/* TEXT MODE */}
+          {mode === "text" && (
+            <>
+              {/* Input type sub-selector */}
+              <div className="flex gap-2">
+                {(["text", "transcript", "url"] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setInputType(type)}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      inputType === type
+                        ? "bg-white/[0.08] text-gray-200 border border-white/[0.12]"
+                        : "bg-white/[0.02] text-gray-500 border border-white/[0.04] hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {type === "text" ? "Message" : type === "transcript" ? "Call Transcript" : "URL"}
+                  </button>
+                ))}
+              </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">
-              {input.length} characters
-            </span>
-            <button
-              onClick={handleAnalyze}
-              disabled={loading || input.trim().length < 5}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Shield className="h-4 w-4" />
-                  Analyze
-                </>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={
+                  inputType === "text"
+                    ? "Paste suspicious WhatsApp/SMS message here..."
+                    : inputType === "transcript"
+                      ? "Paste the call transcript here..."
+                      : "Paste the suspicious URL here..."
+                }
+                className="w-full h-56 bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm text-gray-200 placeholder:text-gray-600 resize-none focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all font-[family-name:var(--font-mono)]"
+              />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">
+                    {input.length} characters
+                  </span>
+                  {voiceSupported && (
+                    <button
+                      onClick={toggleListening}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                        isListening
+                          ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse"
+                          : "bg-white/[0.04] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08]"
+                      }`}
+                      title={isListening ? "Stop listening" : "Start voice input"}
+                    >
+                      {isListening ? (
+                        <><MicOff className="h-3 w-3" /> Stop</>
+                      ) : (
+                        <><Mic className="h-3 w-3" /> Voice</>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={handleAnalyze}
+                  disabled={loading || input.trim().length < 5}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4" />
+                      Analyze
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Interim voice transcript */}
+              {isListening && interimTranscript && (
+                <div className="p-2 rounded-lg bg-red-500/5 border border-red-500/10">
+                  <p className="text-xs text-red-300 italic">
+                    🎙️ {interimTranscript}
+                  </p>
+                </div>
               )}
-            </button>
-          </div>
+            </>
+          )}
+
+          {/* SCREENSHOT / COUNTERFEIT MODE */}
+          {(mode === "screenshot" || mode === "counterfeit") && (
+            <>
+              {/* Drop zone */}
+              <div
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                className="relative w-full h-56 border-2 border-dashed border-white/[0.08] rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-500/30 transition-all overflow-hidden"
+                onClick={() => document.getElementById("image-upload")?.click()}
+              >
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                ) : (
+                  <div className="text-center p-6">
+                    <div className="text-3xl mb-2">
+                      {mode === "screenshot" ? "📸" : "💵"}
+                    </div>
+                    <p className="text-sm text-gray-400 mb-1">
+                      {mode === "screenshot"
+                        ? "Drop a screenshot or click to upload"
+                        : "Drop a banknote photo or click to upload"}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {mode === "screenshot"
+                        ? "WhatsApp, SMS, email, social media screenshots"
+                        : "₹100, ₹200, ₹500, ₹2000 notes — both sides if possible"}
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                />
+              </div>
+
+              {imagePreview && (
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => { setImagePreview(null); setImageBase64(null); }}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    Clear image
+                  </button>
+                  <button
+                    onClick={mode === "screenshot" ? handleImageAnalyze : handleCounterfeitAnalyze}
+                    disabled={loading || !imageBase64}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {mode === "screenshot" ? "Extracting text..." : "Analyzing note..."}
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-4 w-4" />
+                        {mode === "screenshot" ? "Extract & Analyze" : "Verify Authenticity"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Extracted text display (screenshot mode) */}
+              {extractedText && mode === "screenshot" && (
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <p className="text-xs text-gray-500 mb-1">Extracted Text:</p>
+                  <p className="text-sm text-gray-300 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">
+                    {extractedText}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
 
           {error && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
               {error}
             </div>
+          )}
+
+          {/* Counterfeit Result Panel */}
+          {counterfeitResult && mode === "counterfeit" && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-3"
+            >
+              {/* Verdict */}
+              <div className={`p-4 rounded-xl border ${
+                counterfeitResult.verdict === "genuine"
+                  ? "bg-green-500/10 border-green-500/20"
+                  : counterfeitResult.verdict === "counterfeit"
+                    ? "bg-red-500/10 border-red-500/20"
+                    : counterfeitResult.verdict === "suspect"
+                      ? "bg-orange-500/10 border-orange-500/20"
+                      : "bg-gray-500/10 border-gray-500/20"
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-lg font-bold uppercase ${
+                    counterfeitResult.verdict === "genuine" ? "text-green-400" :
+                    counterfeitResult.verdict === "counterfeit" ? "text-red-400" :
+                    counterfeitResult.verdict === "suspect" ? "text-orange-400" :
+                    "text-gray-400"
+                  }`}>
+                    {counterfeitResult.verdict === "genuine" ? "✅ " : counterfeitResult.verdict === "counterfeit" ? "🚨 " : "⚠️ "}
+                    {counterfeitResult.verdict}
+                  </span>
+                  <span className="text-sm text-gray-400">
+                    {Math.round(counterfeitResult.confidence * 100)}% confidence
+                  </span>
+                </div>
+                {counterfeitResult.denomination_detected && (
+                  <p className="text-sm text-gray-300 mb-2">
+                    Denomination: {counterfeitResult.denomination_detected}
+                  </p>
+                )}
+                <p className="text-sm text-gray-400">{counterfeitResult.overall_assessment}</p>
+              </div>
+
+              {/* Security Features */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-semibold text-gray-400">Security Features</h4>
+                {counterfeitResult.security_features.map((feature, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+                  >
+                    <span className="text-xs text-gray-300">{feature.feature_name}</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      feature.status === "pass" ? "bg-green-500/15 text-green-400" :
+                      feature.status === "fail" ? "bg-red-500/15 text-red-400" :
+                      feature.status === "uncertain" ? "bg-yellow-500/15 text-yellow-400" :
+                      "bg-gray-500/15 text-gray-400"
+                    }`}>
+                      {feature.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* RBI Guidelines */}
+              <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                <p className="text-xs font-semibold text-blue-400 mb-1">📋 RBI Guidelines</p>
+                <p className="text-xs text-gray-400">{counterfeitResult.rbi_guidelines}</p>
+              </div>
+
+              {/* Evidence */}
+              <div className="text-[10px] text-gray-600 font-mono">
+                Hash: {counterfeitResult.evidence_hash} · {counterfeitResult.processing_time_ms}ms
+              </div>
+            </motion.div>
           )}
         </motion.div>
 
@@ -688,6 +973,82 @@ export default function DetectPage() {
                   <p className="text-[10px] text-gray-500 font-mono break-all">
                     {result.evidence_hash}
                   </p>
+                </div>
+              )}
+
+              {/* ★ EXTRACTED ENTITIES & GRAPH INTELLIGENCE */}
+              {result.graph_intel && result.graph_intel.entities_extracted.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                    <Network className="h-4 w-4 text-violet-400" />
+                    Extracted Entities ({result.graph_intel.entities_extracted.length})
+                  </h3>
+                  <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] space-y-3">
+                    {/* Graph summary badge */}
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="px-2 py-1 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20">
+                        {result.graph_intel.nodes_created} nodes created
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                        {result.graph_intel.edges_created} edges created
+                      </span>
+                      {result.graph_intel.nodes_linked > 0 && (
+                        <span className="px-2 py-1 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                          {result.graph_intel.nodes_linked} linked to existing
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Entity list */}
+                    <div className="flex flex-wrap gap-2">
+                      {result.graph_intel.entities_extracted.map((entity, i) => {
+                        const typeColors: Record<string, string> = {
+                          phone: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+                          upi_id: "bg-violet-500/15 text-violet-400 border-violet-500/20",
+                          bank_account: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+                          email: "bg-teal-500/15 text-teal-400 border-teal-500/20",
+                          url: "bg-purple-500/15 text-purple-400 border-purple-500/20",
+                          person: "bg-rose-500/15 text-rose-400 border-rose-500/20",
+                          organization: "bg-indigo-500/15 text-indigo-400 border-indigo-500/20",
+                          location: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+                          amount: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
+                          designation: "bg-pink-500/15 text-pink-400 border-pink-500/20",
+                        };
+                        const typeIcons: Record<string, string> = {
+                          phone: "📱", upi_id: "💳", bank_account: "🏦",
+                          email: "📧", url: "🔗", person: "🕵️",
+                          organization: "🏢", location: "📍", amount: "💰",
+                          designation: "🏷️", ifsc: "🏦", aadhaar: "🪪", pan: "🪪",
+                        };
+                        const colorClass = typeColors[entity.entity_type] || "bg-gray-500/15 text-gray-400 border-gray-500/20";
+                        const icon = typeIcons[entity.entity_type] || "📌";
+                        return (
+                          <motion.span
+                            key={i}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: i * 0.05 }}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border ${colorClass}`}
+                          >
+                            <span>{icon}</span>
+                            <span className="font-mono">{entity.value}</span>
+                            <span className="opacity-50 text-[9px]">
+                              {entity.source === "llm" ? "AI" : ""}
+                            </span>
+                          </motion.span>
+                        );
+                      })}
+                    </div>
+
+                    {/* View in Graph link */}
+                    <a
+                      href="/investigate"
+                      className="inline-flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors mt-1"
+                    >
+                      <Network className="h-3 w-3" />
+                      View in Fraud Network Graph →
+                    </a>
+                  </div>
                 </div>
               )}
 

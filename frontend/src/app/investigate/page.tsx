@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Network,
@@ -12,10 +12,15 @@ import {
   CreditCard,
   User,
   MapPin,
+  Globe,
+  Mail,
+  BadgeDollarSign,
+  Fingerprint,
+  Tag,
 } from "lucide-react";
-import { searchNodes, getNetwork } from "@/lib/api";
+import { searchNodes, getNetwork, getRecentEntities } from "@/lib/api";
 import type { SearchResult, NetworkResponse, GraphNode } from "@/lib/types";
-import { NODE_TYPE_COLORS } from "@/lib/types";
+import { NODE_TYPE_COLORS, NODE_TYPE_ICONS } from "@/lib/types";
 import { FraudGraph } from "@/components/graph/fraud-graph";
 
 const NODE_ICONS: Record<string, React.ElementType> = {
@@ -34,6 +39,23 @@ export default function InvestigatePage() {
   const [searching, setSearching] = useState(false);
   const [loadingGraph, setLoadingGraph] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentEntities, setRecentEntities] = useState<SearchResult[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  // Auto-load recent entities on mount
+  useEffect(() => {
+    async function loadRecent() {
+      try {
+        const entities = await getRecentEntities(20);
+        setRecentEntities(entities);
+      } catch {
+        // Not critical — page still works with search
+      } finally {
+        setLoadingRecent(false);
+      }
+    }
+    loadRecent();
+  }, []);
 
   const handleSearch = async () => {
     if (!query.trim() || query.trim().length < 2) return;
@@ -175,6 +197,56 @@ export default function InvestigatePage() {
           <p className="mt-3 text-sm text-red-400">{error}</p>
         )}
       </motion.div>
+
+      {/* Recent Entities — auto-populated from analyzed cases */}
+      {!networkData && recentEntities.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card p-4 mb-6"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+              <Fingerprint className="h-4 w-4 text-violet-400" />
+              Recently Extracted Entities
+            </h3>
+            <span className="text-xs text-gray-500">{recentEntities.length} entities</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {recentEntities.map((entity, i) => {
+              const icon = NODE_TYPE_ICONS[entity.node_type] || "📌";
+              const color = NODE_TYPE_COLORS[entity.node_type] || "#6b7280";
+              return (
+                <motion.button
+                  key={entity.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.03 }}
+                  onClick={() => handleSelectNode(entity.id)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border transition-all hover:scale-105"
+                  style={{
+                    background: `${color}10`,
+                    borderColor: `${color}25`,
+                    color: color,
+                  }}
+                >
+                  <span>{icon}</span>
+                  <span className="font-mono text-gray-300">{entity.label}</span>
+                  {entity.risk_score != null && entity.risk_score > 0.5 && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                      {Math.round(entity.risk_score * 100)}%
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-gray-600 mt-2">
+            Click any entity to explore its fraud network connections
+          </p>
+        </motion.div>
+      )}
 
       {/* Graph + Detail Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

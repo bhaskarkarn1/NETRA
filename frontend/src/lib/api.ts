@@ -70,6 +70,55 @@ export async function analyzeText(data: DetectRequest): Promise<DetectResponse> 
   });
 }
 
+export async function analyzeImage(
+  imageBase64: string,
+  mimeType: string = "image/jpeg"
+): Promise<{
+  extracted_text: string;
+  detection_result: DetectResponse | null;
+  ocr_confidence: number;
+  image_description: string;
+}> {
+  return request("/api/detect/image", {
+    method: "POST",
+    body: JSON.stringify({
+      image_base64: imageBase64,
+      mime_type: mimeType,
+      input_type: "screenshot",
+    }),
+  });
+}
+
+export async function analyzeCounterfeit(
+  imageBase64: string,
+  mimeType: string = "image/jpeg",
+  denomination?: string
+): Promise<{
+  verdict: string;
+  confidence: number;
+  denomination_detected: string | null;
+  security_features: Array<{
+    feature_name: string;
+    status: string;
+    confidence: number;
+    description: string;
+  }>;
+  overall_assessment: string;
+  rbi_guidelines: string;
+  evidence_hash: string;
+  model_used: string;
+  processing_time_ms: number;
+}> {
+  return request("/api/detect/counterfeit", {
+    method: "POST",
+    body: JSON.stringify({
+      image_base64: imageBase64,
+      mime_type: mimeType,
+      denomination: denomination || null,
+    }),
+  });
+}
+
 export async function getCase(caseId: string): Promise<DetectResponse> {
   return request<DetectResponse>(`/api/detect/${caseId}`);
 }
@@ -105,6 +154,20 @@ export async function getNetwork(
 
 export async function getNodeDetail(nodeId: string): Promise<SearchResult> {
   return request<SearchResult>(`/api/graph/node/${nodeId}`);
+}
+
+export async function getRecentEntities(limit = 20): Promise<SearchResult[]> {
+  return request<SearchResult[]>(`/api/graph/recent?limit=${limit}`);
+}
+
+export async function getGraphStats(): Promise<{
+  total_nodes: number;
+  total_edges: number;
+  node_type_counts: Record<string, number>;
+  high_risk_entities: number;
+  syndicate_clusters: number;
+}> {
+  return request(`/api/graph/stats`);
 }
 
 // =================== Simulate API ===================
@@ -150,6 +213,30 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
 export async function getThreatFeed(limit = 20): Promise<ThreatFeedItem[]> {
   return request<ThreatFeedItem[]>(`/api/dashboard/threat-feed?limit=${limit}`);
+}
+
+export interface ChartDataPoint {
+  label: string;
+  value: number;
+  color: string | null;
+}
+
+export interface DailyTrend {
+  date: string;
+  cases: number;
+  scams: number;
+}
+
+export interface AnalyticsData {
+  scam_type_distribution: ChartDataPoint[];
+  risk_level_breakdown: ChartDataPoint[];
+  daily_trend: DailyTrend[];
+  entity_type_breakdown: ChartDataPoint[];
+  top_entities: Array<{ label: string; type: string; risk_score: number }>;
+}
+
+export async function getAnalytics(): Promise<AnalyticsData> {
+  return request<AnalyticsData>("/api/dashboard/analytics");
 }
 
 // =================== Config API ===================
