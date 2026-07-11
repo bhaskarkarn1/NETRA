@@ -170,6 +170,60 @@ export async function getGraphStats(): Promise<{
   return request(`/api/graph/stats`);
 }
 
+export interface PropagationResult {
+  iterations: number;
+  nodes_updated: number;
+  max_risk_delta: number;
+  high_risk_nodes: Array<{
+    id: string;
+    label: string;
+    type: string;
+    original_risk: number;
+    propagated_risk: number;
+    delta: number;
+  }>;
+}
+
+export async function propagateRisk(iterations = 5, decay = 0.6): Promise<PropagationResult> {
+  return request<PropagationResult>(
+    `/api/graph/propagate-risk?iterations=${iterations}&decay=${decay}`,
+    { method: "POST" }
+  );
+}
+
+export interface CommunityData {
+  community_id: number;
+  size: number;
+  members: Array<{ id: string; label: string; type: string; risk_score: number }>;
+  risk_score: number;
+  is_syndicate: boolean;
+}
+
+export interface CommunitiesResponse {
+  total_communities: number;
+  syndicates_detected: number;
+  communities: CommunityData[];
+}
+
+export async function getCommunities(): Promise<CommunitiesResponse> {
+  return request<CommunitiesResponse>("/api/graph/communities");
+}
+
+export interface InterventionImpact {
+  target_node_id: string;
+  target_label: string;
+  target_type: string;
+  downstream_affected: number;
+  estimated_risk_reduction: number;
+  connected_cases: Array<{ id: string; label: string; type: string; risk_score: number }>;
+  affected_entities: Array<{ id: string; label: string; type: string; risk_score: number }>;
+  intervention_priority: string;
+}
+
+export async function getIntervention(nodeId: string): Promise<InterventionImpact> {
+  return request<InterventionImpact>(`/api/graph/intervention/${nodeId}`);
+}
+
 // =================== Simulate API ===================
 
 export async function getScenarios(): Promise<ScenarioInfo[]> {
@@ -239,9 +293,49 @@ export async function getAnalytics(): Promise<AnalyticsData> {
   return request<AnalyticsData>("/api/dashboard/analytics");
 }
 
+// =================== Geospatial API ===================
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  label: string;
+  state: string;
+  is_hotspot: boolean;
+  risk_score: number;
+  case_count: number;
+  scam_types: string[];
+}
+
+export interface GeospatialData {
+  points: GeoPoint[];
+  total_locations: number;
+  hotspot_count: number;
+}
+
+export async function getGeospatialData(): Promise<GeospatialData> {
+  return request<GeospatialData>("/api/dashboard/geospatial");
+}
+
+// =================== Alert API ===================
+
+export interface AlertData {
+  case_id: string;
+  alert_type: string;
+  generated_text: string;
+  sections: Array<{ title: string; content: string }>;
+  recommended_actions: string[];
+  severity: string;
+  generated_at: string;
+}
+
+export async function getCaseAlert(caseId: string, alertType = "I4C_ALERT"): Promise<AlertData> {
+  return request<AlertData>(`/api/detect/${caseId}/alert?alert_type=${alertType}`);
+}
+
 // =================== Config API ===================
 
 export async function getMapboxToken(): Promise<string> {
   const data = await request<{ token: string }>("/api/config/mapbox-token");
   return data.token;
 }
+

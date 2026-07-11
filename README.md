@@ -284,6 +284,9 @@ NETRA exposes **22 REST API endpoints** organized into 4 modules. Full interacti
 | `GET` | `/api/graph/network/{node_id}` | Get entity's connected fraud network |
 | `GET` | `/api/graph/recent` | Recently discovered entities |
 | `GET` | `/api/graph/stats` | Graph ecosystem statistics |
+| `POST` | `/api/graph/propagate-risk` | **Bayesian risk propagation** across graph edges |
+| `GET` | `/api/graph/communities` | **Community detection** — BFS syndicate clustering |
+| `GET` | `/api/graph/intervention/{node_id}` | **Causal intervention** — "what if we freeze this?" |
 
 ### Simulation API (`/api/simulate`)
 
@@ -301,6 +304,7 @@ NETRA exposes **22 REST API endpoints** organized into 4 modules. Full interacti
 | `GET` | `/api/dashboard/metrics` | Real-time platform metrics |
 | `GET` | `/api/dashboard/threat-feed` | Live threat activity feed |
 | `GET` | `/api/dashboard/analytics` | Chart-ready analytics (scam distribution, entity breakdown, daily trends) |
+| `GET` | `/api/dashboard/geospatial` | **Geospatial threat data** — geocoded scam locations with NCRB hotspot overlay |
 
 ---
 
@@ -444,13 +448,24 @@ NETRA draws on published research in:
 
 ## Roadmap
 
-- [ ] **Geospatial Crime Map**: MapLibre GL JS heat map of scam origins across India
-- [ ] **Bayesian Risk Propagation**: Risk scores flow across graph edges (PageRank-inspired)
-- [ ] **Community Detection**: Louvain algorithm for automatic syndicate clustering
+### Completed ✅
+
+- [x] **Geospatial Crime Map**: MapLibre GL JS heat map of scam origins across India (CARTO dark tiles, NCRB hotspot data)
+- [x] **Bayesian Risk Propagation**: Risk scores flow across graph edges with iterative belief propagation
+- [x] **Community Detection**: BFS connected components for automatic syndicate clustering
+- [x] **Causal Intervention Simulator**: "What if we freeze this entity?" counterfactual analysis
+- [x] **Multi-Modal Input**: Text, screenshot OCR (Gemini Vision), counterfeit currency analysis
+- [x] **MHA/NCRB Alert Generation**: I4C-compliant legal alert documents
+- [x] **Voice Input**: Web Speech API integration (en-IN for Hindi-English)
+- [x] **D3.js Dashboard**: Donut charts, bar charts, risk tables, live analytics
+
+### Planned 🚀
+
 - [ ] **Multilingual Support**: Hindi, Tamil, Telugu, Bengali scam analysis
 - [ ] **Browser Extension**: Chrome extension for real-time SMS/WhatsApp scanning
 - [ ] **Mobile App**: React Native companion app with camera-first UX
-- [ ] **Deployment**: Railway (backend) + Vercel (frontend) for public demo
+- [ ] **Real-time Streaming**: WebSocket-based live threat feed
+- [ ] **PDF Report Export**: One-click forensic dossier as PDF
 
 ---
 

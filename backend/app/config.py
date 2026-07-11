@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    FRONTEND_URL: str = ""  # Deployed frontend URL (e.g., https://netra.vercel.app)
 
     # Database
     DATABASE_URL: str = ""  # Neon PostgreSQL connection string

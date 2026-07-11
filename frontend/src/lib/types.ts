@@ -32,6 +32,8 @@ export interface KillChainStage {
   detected: boolean;
   evidence: string | null;
   severity: "critical" | "high" | "medium" | "low" | "none";
+  confidence?: number;
+  tactics?: string[];
 }
 
 export interface RelatedCase {

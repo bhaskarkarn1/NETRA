@@ -219,3 +219,67 @@ body {
   color: #4ade80;
   border: 1px solid rgba(34, 197, 94, 0.25);
 }
+
+/* MapLibre GL dark theme popups */
+.maplibregl-popup-content {
+  background: rgba(24, 24, 27, 0.95) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  padding: 8px !important;
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: rgba(24, 24, 27, 0.95) !important;
+}
+
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: rgba(24, 24, 27, 0.95) !important;
+}
+
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: rgba(24, 24, 27, 0.95) !important;
+}
+
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: rgba(24, 24, 27, 0.95) !important;
+}
+
+/* MapLibre navigation controls dark theme */
+.maplibregl-ctrl-group {
+  background: rgba(24, 24, 27, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+}
+
+.maplibregl-ctrl-group button {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: none !important;
+}
+
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1) !important;
+}
+
+/* Mobile responsive overrides */
+@media (max-width: 640px) {
+  .glass-card {
+    border-radius: 10px;
+  }
+
+  /* Stack metrics 1-column on very small screens */
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Adjust map height on tablets */
+  .maplibregl-map {
+    min-height: 280px;
+  }
+}

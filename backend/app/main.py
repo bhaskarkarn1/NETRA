@@ -52,10 +52,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
+    # CORS — include deployed frontend URL if set
+    cors_origins = list(settings.CORS_ORIGINS)
+    if settings.FRONTEND_URL and settings.FRONTEND_URL not in cors_origins:
+        cors_origins.append(settings.FRONTEND_URL)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

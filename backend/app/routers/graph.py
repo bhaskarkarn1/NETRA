@@ -297,3 +297,348 @@ async def get_node_detail(
         first_seen=node.first_seen.isoformat() if node.first_seen else None,
         last_seen=node.last_seen.isoformat() if node.last_seen else None,
     )
+
+
+# ---------- Bayesian Risk Propagation ----------
+
+class PropagationResult(BaseModel):
+    iterations: int
+    nodes_updated: int
+    max_risk_delta: float
+    high_risk_nodes: list[dict]  # Nodes whose risk increased most
+
+
+@router.post("/propagate-risk", response_model=PropagationResult)
+async def propagate_risk(
+    iterations: int = 5,
+    decay: float = 0.6,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Bayesian risk propagation across the fraud network.
+
+    Algorithm:
+    1. Load all nodes and edges
+    2. For each iteration:
+       a. For each edge, calculate risk contribution = source.risk * decay * edge.weight
+       b. Update target node risk = max(current_risk, propagated_risk)
+    3. Persist updated risk scores
+
+    This implements a simplified belief propagation where risk "flows"
+    through the network from high-risk nodes to their neighbors,
+    with exponential decay over distance.
+
+    Research basis: Bayesian belief networks, influence maximization
+    in social networks (Kempe et al., KDD 2003).
+    """
+    # Load full graph
+    nodes_result = await db.execute(select(GraphNode))
+    all_nodes = nodes_result.scalars().all()
+
+    edges_result = await db.execute(select(GraphEdge))
+    all_edges = edges_result.scalars().all()
+
+    if not all_nodes:
+        return PropagationResult(
+            iterations=0, nodes_updated=0, max_risk_delta=0.0, high_risk_nodes=[]
+        )
+
+    # Build adjacency: node_id → list of (neighbor_id, weight)
+    node_map: dict[str, GraphNode] = {str(n.id): n for n in all_nodes}
+    adjacency: dict[str, list[tuple[str, float]]] = {nid: [] for nid in node_map}
+
+    for edge in all_edges:
+        src = str(edge.source_id)
+        tgt = str(edge.target_id)
+        w = edge.weight or 1.0
+        if src in adjacency:
+            adjacency[src].append((tgt, w))
+        if tgt in adjacency:
+            adjacency[tgt].append((src, w))  # Bidirectional propagation
+
+    # Track risk changes
+    original_risk = {nid: (n.risk_score or 0.0) for nid, n in node_map.items()}
+    current_risk = dict(original_risk)
+
+    max_delta = 0.0
+
+    for iteration in range(iterations):
+        new_risk = dict(current_risk)
+
+        for nid in current_risk:
+            # Calculate incoming risk from neighbors
+            incoming = 0.0
+            for neighbor_id, weight in adjacency.get(nid, []):
+                contribution = current_risk.get(neighbor_id, 0.0) * decay * min(weight, 1.0)
+                incoming = max(incoming, contribution)
+
+            # Risk = max(direct_risk, propagated_risk) — risk only increases
+            proposed = max(current_risk[nid], incoming)
+            new_risk[nid] = min(proposed, 1.0)  # Cap at 1.0
+
+        # Convergence check
+        delta = max(abs(new_risk[nid] - current_risk[nid]) for nid in current_risk)
+        max_delta = max(max_delta, delta)
+        current_risk = new_risk
+
+        if delta < 0.001:
+            break
+
+    # Persist updates
+    nodes_updated = 0
+    for nid, node in node_map.items():
+        if abs(current_risk[nid] - original_risk[nid]) > 0.001:
+            node.risk_score = round(current_risk[nid], 4)
+            nodes_updated += 1
+
+    await db.commit()
+
+    # Find nodes with biggest risk increase
+    deltas = [
+        {
+            "id": nid,
+            "label": node_map[nid].label,
+            "type": node_map[nid].node_type,
+            "original_risk": round(original_risk[nid], 4),
+            "propagated_risk": round(current_risk[nid], 4),
+            "delta": round(current_risk[nid] - original_risk[nid], 4),
+        }
+        for nid in node_map
+        if current_risk[nid] - original_risk[nid] > 0.001
+    ]
+    deltas.sort(key=lambda x: x["delta"], reverse=True)
+
+    return PropagationResult(
+        iterations=iterations,
+        nodes_updated=nodes_updated,
+        max_risk_delta=round(max_delta, 4),
+        high_risk_nodes=deltas[:15],
+    )
+
+
+# ---------- Community Detection (Syndicate Identification) ----------
+
+class Community(BaseModel):
+    community_id: int
+    size: int
+    members: list[dict]
+    risk_score: float  # Average risk of community members
+    is_syndicate: bool  # True if multiple case nodes are connected
+
+
+class CommunityResponse(BaseModel):
+    total_communities: int
+    syndicates_detected: int
+    communities: list[Community]
+
+
+@router.get("/communities", response_model=CommunityResponse)
+async def detect_communities(db: AsyncSession = Depends(get_db)):
+    """
+    Community detection using connected components (BFS).
+
+    Identifies clusters of connected entities. A cluster with
+    multiple linked cases is flagged as a potential fraud syndicate.
+
+    This is the foundation for organized crime detection — if the same
+    phone, UPI, or bank account appears across multiple unrelated cases,
+    those cases likely belong to the same criminal network.
+    """
+    # Load graph
+    nodes_result = await db.execute(select(GraphNode))
+    all_nodes = nodes_result.scalars().all()
+    edges_result = await db.execute(select(GraphEdge))
+    all_edges = edges_result.scalars().all()
+
+    if not all_nodes:
+        return CommunityResponse(
+            total_communities=0, syndicates_detected=0, communities=[]
+        )
+
+    # Build adjacency
+    node_map = {str(n.id): n for n in all_nodes}
+    adjacency: dict[str, set[str]] = {nid: set() for nid in node_map}
+
+    for edge in all_edges:
+        src, tgt = str(edge.source_id), str(edge.target_id)
+        if src in adjacency and tgt in adjacency:
+            adjacency[src].add(tgt)
+            adjacency[tgt].add(src)
+
+    # BFS-based connected components
+    visited: set[str] = set()
+    components: list[list[str]] = []
+
+    for nid in node_map:
+        if nid in visited:
+            continue
+        component: list[str] = []
+        queue = [nid]
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+            component.append(current)
+            for neighbor in adjacency.get(current, set()):
+                if neighbor not in visited:
+                    queue.append(neighbor)
+        if component:
+            components.append(component)
+
+    # Build community objects
+    communities: list[Community] = []
+    syndicates = 0
+
+    for idx, comp in enumerate(components):
+        members = []
+        case_count = 0
+        total_risk = 0.0
+
+        for nid in comp:
+            node = node_map.get(nid)
+            if not node:
+                continue
+            risk = node.risk_score or 0.0
+            total_risk += risk
+            if node.node_type == "case":
+                case_count += 1
+            members.append({
+                "id": nid,
+                "label": node.label,
+                "type": node.node_type,
+                "risk_score": round(risk, 3),
+            })
+
+        avg_risk = total_risk / len(comp) if comp else 0.0
+        is_syndicate = case_count >= 2  # 2+ cases sharing entities = syndicate
+
+        if is_syndicate:
+            syndicates += 1
+
+        communities.append(Community(
+            community_id=idx,
+            size=len(comp),
+            members=members,
+            risk_score=round(avg_risk, 3),
+            is_syndicate=is_syndicate,
+        ))
+
+    # Sort by size descending
+    communities.sort(key=lambda c: c.size, reverse=True)
+
+    return CommunityResponse(
+        total_communities=len(communities),
+        syndicates_detected=syndicates,
+        communities=communities,
+    )
+
+
+# ---------- Causal Intervention Simulator ----------
+
+class InterventionImpact(BaseModel):
+    target_node_id: str
+    target_label: str
+    target_type: str
+    downstream_affected: int
+    estimated_risk_reduction: float
+    connected_cases: list[dict]
+    affected_entities: list[dict]
+    intervention_priority: str  # "P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW"
+
+
+@router.get("/intervention/{node_id}", response_model=InterventionImpact)
+async def simulate_intervention(
+    node_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Causal Intervention Simulator — 'What if we freeze this entity?'
+
+    Calculates the downstream impact of removing a node from the network:
+    - How many entities would be isolated?
+    - Which cases would be affected?
+    - What's the estimated risk reduction?
+
+    This helps law enforcement prioritize WHERE to act first
+    for maximum disruption of the fraud network.
+
+    Research basis: Causal inference, counterfactual analysis,
+    network intervention optimization (Albert et al., Nature 2000).
+    """
+    try:
+        uid = uuid.UUID(node_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid node ID format")
+
+    # Get target node
+    stmt = select(GraphNode).where(GraphNode.id == uid)
+    result = await db.execute(stmt)
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    # Get all edges connected to this node
+    edge_stmt = select(GraphEdge).where(
+        or_(GraphEdge.source_id == uid, GraphEdge.target_id == uid)
+    )
+    edge_result = await db.execute(edge_stmt)
+    edges = edge_result.scalars().all()
+
+    # Get all connected node IDs
+    connected_ids = set()
+    for e in edges:
+        connected_ids.add(str(e.source_id))
+        connected_ids.add(str(e.target_id))
+    connected_ids.discard(str(uid))
+
+    # Fetch connected nodes
+    connected_cases: list[dict] = []
+    affected_entities: list[dict] = []
+    total_risk = 0.0
+
+    if connected_ids:
+        connected_uuids = [uuid.UUID(cid) for cid in connected_ids]
+        node_stmt = select(GraphNode).where(GraphNode.id.in_(connected_uuids))
+        node_result = await db.execute(node_stmt)
+        connected_nodes = node_result.scalars().all()
+
+        for n in connected_nodes:
+            risk = n.risk_score or 0.0
+            total_risk += risk
+            entry = {
+                "id": str(n.id),
+                "label": n.label,
+                "type": n.node_type,
+                "risk_score": round(risk, 3),
+            }
+            if n.node_type == "case":
+                connected_cases.append(entry)
+            else:
+                affected_entities.append(entry)
+
+    downstream = len(connected_ids)
+    risk_reduction = round(total_risk / max(downstream, 1), 3)
+
+    # Priority calculation
+    target_risk = target.risk_score or 0.0
+    if target_risk >= 0.8 or len(connected_cases) >= 3:
+        priority = "P1-CRITICAL"
+    elif target_risk >= 0.6 or len(connected_cases) >= 2:
+        priority = "P2-HIGH"
+    elif target_risk >= 0.3 or downstream >= 3:
+        priority = "P3-MEDIUM"
+    else:
+        priority = "P4-LOW"
+
+    return InterventionImpact(
+        target_node_id=str(uid),
+        target_label=target.label,
+        target_type=target.node_type,
+        downstream_affected=downstream,
+        estimated_risk_reduction=risk_reduction,
+        connected_cases=connected_cases,
+        affected_entities=affected_entities,
+        intervention_priority=priority,
+    )
+

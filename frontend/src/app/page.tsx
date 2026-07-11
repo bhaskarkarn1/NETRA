@@ -18,11 +18,15 @@ import {
   Zap,
   PieChart,
   Fingerprint,
+  MapPin,
 } from "lucide-react";
-import { getDashboardMetrics, getThreatFeed, getAnalytics } from "@/lib/api";
+import { getDashboardMetrics, getThreatFeed, getAnalytics, getGeospatialData } from "@/lib/api";
 import type { DashboardMetrics, ThreatFeedItem } from "@/lib/types";
-import type { AnalyticsData } from "@/lib/api";
+import type { AnalyticsData, GeospatialData } from "@/lib/api";
 import { DonutChart, HorizontalBarChart, TopEntitiesTable } from "@/components/charts/dashboard-charts";
+import { ThreatMap } from "@/components/maps/threat-map";
+import { DashboardMetricsSkeleton, ChartSkeleton, ThreatFeedSkeleton } from "@/components/shared/skeletons";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 
 // Stagger animation variants
 const container = {
@@ -195,19 +199,22 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [threats, setThreats] = useState<ThreatFeedItem[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [geoData, setGeoData] = useState<GeospatialData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [m, t, a] = await Promise.all([
+        const [m, t, a, g] = await Promise.all([
           getDashboardMetrics(),
           getThreatFeed(15),
           getAnalytics(),
+          getGeospatialData(),
         ]);
         setMetrics(m);
         setThreats(t);
         setAnalytics(a);
+        setGeoData(g);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       } finally {
@@ -244,6 +251,9 @@ export default function DashboardPage() {
         className="space-y-6"
       >
         {/* Metrics Row */}
+        {loading ? (
+          <DashboardMetricsSkeleton />
+        ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Cases Analyzed"
@@ -288,9 +298,16 @@ export default function DashboardPage() {
             }
           />
         </div>
+        )}
 
         {/* Analytics Charts Row */}
-        {analytics && (
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <ChartSkeleton height={160} />
+            <ChartSkeleton height={160} />
+            <ChartSkeleton height={160} />
+          </div>
+        ) : analytics && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Scam Type Distribution */}
             <motion.div variants={item} className="glass-card p-5">
@@ -344,6 +361,38 @@ export default function DashboardPage() {
               <TopEntitiesTable entities={analytics.top_entities} />
             </motion.div>
           </div>
+        )}
+
+        {/* Geospatial Threat Map */}
+        {geoData && geoData.points.length > 0 && (
+          <motion.div variants={item} className="glass-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-orange-400" />
+                Geospatial Threat Intelligence
+              </h3>
+              <div className="flex items-center gap-3 text-xs text-gray-500">
+                <span>{geoData.total_locations} locations</span>
+                <span className="text-red-400">{geoData.hotspot_count} hotspots</span>
+              </div>
+            </div>
+            <ThreatMap points={geoData.points} height={380} />
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/[0.04] text-xs text-gray-500">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-red-500" />
+                <span>Hotspot</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-orange-500" />
+                <span>High Risk</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-cyan-500" />
+                <span>Detected</span>
+              </div>
+              <span className="ml-auto">Data: NETRA Graph + NCRB Hotspot Registry</span>
+            </div>
+          </motion.div>
         )}
 
         {/* Main Content Grid */}

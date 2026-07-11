@@ -211,10 +211,44 @@ function KillChainTimeline({ stages }: { stages: KillChainStage[] }) {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="ml-13 pl-13 py-2 px-4 ml-[52px]">
-                        <p className="text-xs text-gray-400 italic bg-white/[0.02] rounded-lg p-2.5 border border-white/[0.04]">
-                          &quot;{stage.evidence}&quot;
-                        </p>
+                      <div className="ml-[52px] py-2 px-4">
+                        {/* Evidence quote */}
+                        <div className="bg-white/[0.02] rounded-lg p-3 border border-white/[0.04] space-y-2">
+                          <p className="text-xs text-gray-400 italic leading-relaxed">
+                            &quot;{stage.evidence}&quot;
+                          </p>
+                          {/* Confidence bar */}
+                          {stage.confidence != null && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-[10px] text-gray-600 w-16">Confidence</span>
+                              <div className="flex-1 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${stage.confidence * 100}%` }}
+                                  transition={{ duration: 0.6, delay: 0.1 }}
+                                  className="h-full rounded-full"
+                                  style={{ backgroundColor: config.color }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-mono" style={{ color: config.color }}>
+                                {(stage.confidence * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          )}
+                          {/* Tactics */}
+                          {stage.tactics && stage.tactics.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {stage.tactics.map((t: string, ti: number) => (
+                                <span
+                                  key={ti}
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] text-gray-500 border border-white/[0.04]"
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
                   )}

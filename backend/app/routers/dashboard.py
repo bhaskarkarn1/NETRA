@@ -306,3 +306,123 @@ async def get_analytics(
         top_entities=top_entities,
     )
 
+
+# ---------- Geospatial Intelligence ----------
+
+class GeoPoint(BaseModel):
+    lat: float
+    lng: float
+    label: str
+    state: str
+    is_hotspot: bool
+    risk_score: float
+    case_count: int
+    scam_types: list[str]
+
+
+class GeospatialResponse(BaseModel):
+    points: list[GeoPoint]
+    total_locations: int
+    hotspot_count: int
+
+
+@router.get("/geospatial", response_model=GeospatialResponse)
+async def get_geospatial_data(db: AsyncSession = Depends(get_db)):
+    """
+    Returns geocoded scam origin locations from the fraud graph.
+    Location nodes are geocoded using local Indian city/state lookup.
+    """
+    from app.database import GraphEdge
+    from app.services.geocoding import geocode_location
+
+    # Fetch all location-type nodes
+    loc_stmt = select(GraphNode).where(GraphNode.node_type == "location")
+    loc_result = await db.execute(loc_stmt)
+    location_nodes = loc_result.scalars().all()
+
+    # Also extract locations mentioned in case text via existing graph edges
+    # For each location node, find connected case nodes to get scam types
+    points: list[GeoPoint] = []
+    seen_locations: dict[str, GeoPoint] = {}
+
+    for node in location_nodes:
+        geo = geocode_location(node.label)
+        if not geo:
+            continue
+
+        loc_key = geo["matched"]
+        if loc_key in seen_locations:
+            # Increment case count for duplicates
+            seen_locations[loc_key].case_count += 1
+            continue
+
+        # Find connected cases to attribute scam types
+        edge_stmt = select(GraphEdge).where(
+            (GraphEdge.source_id == node.id) | (GraphEdge.target_id == node.id)
+        )
+        edge_result = await db.execute(edge_stmt)
+        edges = edge_result.scalars().all()
+
+        # Get case nodes connected to this location
+        connected_ids = set()
+        for e in edges:
+            connected_ids.add(e.source_id)
+            connected_ids.add(e.target_id)
+        connected_ids.discard(node.id)
+
+        scam_types = []
+        if connected_ids:
+            case_node_stmt = select(GraphNode).where(
+                GraphNode.id.in_(list(connected_ids)),
+                GraphNode.node_type == "case",
+            )
+            case_result = await db.execute(case_node_stmt)
+            case_nodes = case_result.scalars().all()
+
+            for cn in case_nodes:
+                # Case node label is the case ID — look up the actual case
+                case_stmt = select(Case).where(Case.id == cn.label)
+                try:
+                    cr = await db.execute(case_stmt)
+                    actual_case = cr.scalar_one_or_none()
+                    if actual_case and actual_case.scam_type:
+                        scam_types.append(actual_case.scam_type)
+                except Exception:
+                    pass
+
+        point = GeoPoint(
+            lat=geo["lat"],
+            lng=geo["lng"],
+            label=node.label,
+            state=geo["state"],
+            is_hotspot=geo["is_hotspot"],
+            risk_score=round(node.risk_score or 0.0, 3),
+            case_count=1,
+            scam_types=list(set(scam_types)) if scam_types else ["Unknown"],
+        )
+        seen_locations[loc_key] = point
+        points.append(point)
+
+    # Add hotspot overlay (known cybercrime corridors) even if no cases yet
+    from app.services.geocoding import INDIA_GEOCODE
+    for name, (lat, lng, state, is_hotspot) in INDIA_GEOCODE.items():
+        if is_hotspot and name not in seen_locations:
+            point = GeoPoint(
+                lat=lat,
+                lng=lng,
+                label=name.title(),
+                state=state,
+                is_hotspot=True,
+                risk_score=0.7,  # Base risk for known hotspots
+                case_count=0,
+                scam_types=["Known Cybercrime Corridor"],
+            )
+            points.append(point)
+
+    return GeospatialResponse(
+        points=points,
+        total_locations=len(points),
+        hotspot_count=sum(1 for p in points if p.is_hotspot),
+    )
+
+

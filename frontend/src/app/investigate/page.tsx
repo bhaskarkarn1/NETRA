@@ -17,9 +17,14 @@ import {
   BadgeDollarSign,
   Fingerprint,
   Tag,
+  Zap,
+  Shield,
+  Users,
+  AlertTriangle,
 } from "lucide-react";
-import { searchNodes, getNetwork, getRecentEntities } from "@/lib/api";
+import { searchNodes, getNetwork, getRecentEntities, propagateRisk, getCommunities, getIntervention } from "@/lib/api";
 import type { SearchResult, NetworkResponse, GraphNode } from "@/lib/types";
+import type { PropagationResult, CommunitiesResponse, InterventionImpact } from "@/lib/api";
 import { NODE_TYPE_COLORS, NODE_TYPE_ICONS } from "@/lib/types";
 import { FraudGraph } from "@/components/graph/fraud-graph";
 
@@ -41,6 +46,12 @@ export default function InvestigatePage() {
   const [error, setError] = useState<string | null>(null);
   const [recentEntities, setRecentEntities] = useState<SearchResult[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+
+  // Intelligence panel state
+  const [communities, setCommunities] = useState<CommunitiesResponse | null>(null);
+  const [propagation, setPropagation] = useState<PropagationResult | null>(null);
+  const [intervention, setIntervention] = useState<InterventionImpact | null>(null);
+  const [loadingIntel, setLoadingIntel] = useState(false);
 
   // Auto-load recent entities on mount
   useEffect(() => {
@@ -396,6 +407,187 @@ export default function InvestigatePage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Intelligence Panel */}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Risk Propagation */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-5"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Zap className="h-4 w-4 text-cyan-400" />
+              Bayesian Risk Propagation
+            </h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Spread risk scores through graph edges using iterative belief propagation.
+          </p>
+          <button
+            onClick={async () => {
+              setLoadingIntel(true);
+              try {
+                const result = await propagateRisk(5, 0.6);
+                setPropagation(result);
+              } catch { /* ignore */ } finally {
+                setLoadingIntel(false);
+              }
+            }}
+            disabled={loadingIntel}
+            className="w-full px-4 py-2 rounded-lg bg-cyan-500/15 text-cyan-400 text-xs font-medium border border-cyan-500/20 hover:bg-cyan-500/25 disabled:opacity-40 transition-all"
+          >
+            {loadingIntel ? "Propagating..." : "Run Propagation"}
+          </button>
+          {propagation && (
+            <div className="mt-3 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Nodes updated</span>
+                <span className="text-white font-mono">{propagation.nodes_updated}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Max risk Δ</span>
+                <span className="text-orange-400 font-mono">{(propagation.max_risk_delta * 100).toFixed(1)}%</span>
+              </div>
+              {propagation.high_risk_nodes.slice(0, 5).map((n) => (
+                <div key={n.id} className="flex items-center justify-between p-1.5 rounded bg-white/[0.02] text-xs">
+                  <span className="text-gray-300 truncate max-w-[120px]">{n.label}</span>
+                  <span className="text-red-400 font-mono">
+                    {(n.original_risk * 100).toFixed(0)}% → {(n.propagated_risk * 100).toFixed(0)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Community Detection */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-card p-5"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Users className="h-4 w-4 text-violet-400" />
+              Syndicate Detection
+            </h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Identify connected communities. Clusters with 2+ cases = potential syndicates.
+          </p>
+          <button
+            onClick={async () => {
+              setLoadingIntel(true);
+              try {
+                const result = await getCommunities();
+                setCommunities(result);
+              } catch { /* ignore */ } finally {
+                setLoadingIntel(false);
+              }
+            }}
+            disabled={loadingIntel}
+            className="w-full px-4 py-2 rounded-lg bg-violet-500/15 text-violet-400 text-xs font-medium border border-violet-500/20 hover:bg-violet-500/25 disabled:opacity-40 transition-all"
+          >
+            Detect Communities
+          </button>
+          {communities && (
+            <div className="mt-3 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Communities</span>
+                <span className="text-white font-mono">{communities.total_communities}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Syndicates</span>
+                <span className={`font-mono ${communities.syndicates_detected > 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                  {communities.syndicates_detected}
+                </span>
+              </div>
+              {communities.communities.slice(0, 4).map((c) => (
+                <div key={c.community_id} className="p-2 rounded bg-white/[0.02] border border-white/[0.04]">
+                  <div className="flex justify-between text-xs">
+                    <span className={`font-medium ${c.is_syndicate ? 'text-red-400' : 'text-gray-300'}`}>
+                      {c.is_syndicate ? '🔴 Syndicate' : `Cluster ${c.community_id}`}
+                    </span>
+                    <span className="text-gray-500">{c.size} members</span>
+                  </div>
+                  <div className="mt-1 text-[10px] text-gray-500">
+                    Risk: {(c.risk_score * 100).toFixed(0)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Intervention Simulator */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card p-5"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Shield className="h-4 w-4 text-orange-400" />
+              Intervention Simulator
+            </h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Select a node in the graph, then simulate freezing it.
+          </p>
+          <button
+            onClick={async () => {
+              if (!selectedNode) return;
+              setLoadingIntel(true);
+              try {
+                const result = await getIntervention(selectedNode.id);
+                setIntervention(result);
+              } catch { /* ignore */ } finally {
+                setLoadingIntel(false);
+              }
+            }}
+            disabled={loadingIntel || !selectedNode}
+            className="w-full px-4 py-2 rounded-lg bg-orange-500/15 text-orange-400 text-xs font-medium border border-orange-500/20 hover:bg-orange-500/25 disabled:opacity-40 transition-all"
+          >
+            {selectedNode ? `Simulate: Freeze "${selectedNode.label.slice(0, 20)}"` : 'Select a node first'}
+          </button>
+          {intervention && (
+            <div className="mt-3 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Target</span>
+                <span className="text-white font-mono truncate max-w-[120px]">{intervention.target_label}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Downstream affected</span>
+                <span className="text-orange-400 font-mono">{intervention.downstream_affected}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Priority</span>
+                <span className={`font-mono ${
+                  intervention.intervention_priority.includes('CRITICAL') ? 'text-red-400'
+                  : intervention.intervention_priority.includes('HIGH') ? 'text-orange-400'
+                  : 'text-yellow-400'
+                }`}>
+                  {intervention.intervention_priority}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Connected cases</span>
+                <span className="text-white font-mono">{intervention.connected_cases.length}</span>
+              </div>
+              {intervention.affected_entities.slice(0, 3).map((e) => (
+                <div key={e.id} className="flex items-center justify-between p-1.5 rounded bg-white/[0.02] text-xs">
+                  <span className="text-gray-300 truncate max-w-[120px]">{e.label}</span>
+                  <span className="text-gray-500 capitalize">{e.type.replace('_', ' ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </div>
     </div>
   );
