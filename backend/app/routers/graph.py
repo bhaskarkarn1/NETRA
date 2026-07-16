@@ -9,12 +9,12 @@ Data flow:
 
 import uuid
 import logging
+from collections import deque
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.database import get_db, GraphNode, GraphEdge, AuditLog
 
@@ -30,6 +30,7 @@ class NodeResponse(BaseModel):
     label: str
     properties: dict
     risk_score: float | None = None
+    data_source: str = "case_extracted"  # 'seed', 'case_extracted', 'ncrb_reference'
     first_seen: str | None = None
     last_seen: str | None = None
 
@@ -57,6 +58,7 @@ class SearchResult(BaseModel):
     node_type: str
     label: str
     risk_score: float | None = None
+    data_source: str = "case_extracted"
 
 
 # ---------- Endpoints ----------
@@ -81,6 +83,7 @@ async def search_nodes(
             node_type=n.node_type,
             label=n.label,
             risk_score=n.risk_score,
+            data_source=n.data_source or "case_extracted",
         )
         for n in nodes
     ]
@@ -107,6 +110,7 @@ async def get_recent_entities(
             node_type=n.node_type,
             label=n.label,
             risk_score=n.risk_score,
+            data_source=n.data_source or "case_extracted",
         )
         for n in nodes
     ]
@@ -248,6 +252,7 @@ async def get_network(
                 label=n.label,
                 properties=n.properties or {},
                 risk_score=n.risk_score,
+                data_source=n.data_source or "case_extracted",
                 first_seen=n.first_seen.isoformat() if n.first_seen else None,
                 last_seen=n.last_seen.isoformat() if n.last_seen else None,
             )
@@ -294,17 +299,21 @@ async def get_node_detail(
         label=node.label,
         properties=node.properties or {},
         risk_score=node.risk_score,
+        data_source=node.data_source or "case_extracted",
         first_seen=node.first_seen.isoformat() if node.first_seen else None,
         last_seen=node.last_seen.isoformat() if node.last_seen else None,
     )
 
 
-# ---------- Bayesian Risk Propagation ----------
+# ---------- Influence-Based Risk Propagation ----------
+
+CONVERGENCE_THRESHOLD = 0.001
 
 class PropagationResult(BaseModel):
     iterations: int
     nodes_updated: int
     max_risk_delta: float
+    convergence_threshold: float = 0.001
     high_risk_nodes: list[dict]  # Nodes whose risk increased most
 
 
@@ -315,21 +324,24 @@ async def propagate_risk(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Bayesian risk propagation across the fraud network.
+    Influence-based risk propagation across the fraud network.
 
-    Algorithm:
-    1. Load all nodes and edges
+    Algorithm (Independent Cascade variant):
+    1. Load all nodes and edges into an adjacency structure
     2. For each iteration:
-       a. For each edge, calculate risk contribution = source.risk * decay * edge.weight
-       b. Update target node risk = max(current_risk, propagated_risk)
-    3. Persist updated risk scores
+       a. For each node, compute incoming influence = max(neighbor.risk * decay * edge.weight)
+       b. Update node risk = max(current_risk, incoming_influence) — risk only increases
+       c. Cap all scores at 1.0
+    3. Check convergence: stop early if max delta < 0.001
+    4. Persist updated risk scores to database
 
-    This implements a simplified belief propagation where risk "flows"
-    through the network from high-risk nodes to their neighbors,
-    with exponential decay over distance.
+    This implements influence maximization via the Independent Cascade (IC)
+    model, where risk "flows" through the network from high-risk seed nodes
+    to their neighbors, with configurable decay over graph distance.
 
-    Research basis: Bayesian belief networks, influence maximization
-    in social networks (Kempe et al., KDD 2003).
+    Research basis: Kempe, Kleinberg & Tardos, 'Maximizing the Spread of
+    Influence through a Social Network', KDD 2003. Applied here to
+    fraud network risk assessment rather than information diffusion.
     """
     # Load full graph
     nodes_result = await db.execute(select(GraphNode))
@@ -381,7 +393,7 @@ async def propagate_risk(
         max_delta = max(max_delta, delta)
         current_risk = new_risk
 
-        if delta < 0.001:
+        if delta < CONVERGENCE_THRESHOLD:
             break
 
     # Persist updates
@@ -417,6 +429,7 @@ async def propagate_risk(
 
 
 # ---------- Community Detection (Syndicate Identification) ----------
+
 
 class Community(BaseModel):
     community_id: int
@@ -473,9 +486,9 @@ async def detect_communities(db: AsyncSession = Depends(get_db)):
         if nid in visited:
             continue
         component: list[str] = []
-        queue = [nid]
+        queue = deque([nid])
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if current in visited:
                 continue
             visited.add(current)

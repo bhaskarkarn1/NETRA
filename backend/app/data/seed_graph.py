@@ -595,6 +595,7 @@ async def seed_database():
                 label=n["label"],
                 properties=n["properties"],
                 risk_score=n["risk_score"],
+                data_source="seed",  # Clearly marks this as reference data, not case-extracted
                 first_seen=n["first_seen"],
                 last_seen=n["last_seen"],
             )

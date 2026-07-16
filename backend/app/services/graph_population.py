@@ -330,6 +330,10 @@ class GraphPopulationService:
         """
         Find entities that appear in OTHER cases and create syndicate links.
         This is the key intelligence feature — it auto-detects crime networks.
+
+        When an entity (phone, UPI, bank account) appears in multiple cases,
+        we create 'shared_entity' edges between those case nodes, enabling
+        syndicate cluster visualization.
         """
         edges_created = 0
 
@@ -363,6 +367,24 @@ class GraphPopulationService:
                     f"Syndicate indicator: {entity.entity_type} '{entity.value}' "
                     f"found in {len(case_edges)} cases"
                 )
+
+                # Create cross-case edges: link case nodes that share this entity
+                case_target_ids = [e.target_id for e in case_edges]
+                for i, case_a in enumerate(case_target_ids):
+                    for case_b in case_target_ids[i + 1:]:
+                        created = await self._create_edge_if_not_exists(
+                            source_id=case_a,
+                            target_id=case_b,
+                            edge_type="shared_entity",
+                            properties={
+                                "shared_type": entity.entity_type,
+                                "shared_value": entity.value,
+                                "link_reason": "same entity across cases",
+                            },
+                            weight=1.5,
+                        )
+                        if created:
+                            edges_created += 1
 
         return edges_created
 

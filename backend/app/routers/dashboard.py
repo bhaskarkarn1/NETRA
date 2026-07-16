@@ -318,6 +318,7 @@ class GeoPoint(BaseModel):
     risk_score: float
     case_count: int
     scam_types: list[str]
+    data_source: str = "case_data"  # 'case_data' or 'ncrb_reference'
 
 
 class GeospatialResponse(BaseModel):
@@ -399,23 +400,26 @@ async def get_geospatial_data(db: AsyncSession = Depends(get_db)):
             risk_score=round(node.risk_score or 0.0, 3),
             case_count=1,
             scam_types=list(set(scam_types)) if scam_types else ["Unknown"],
+            data_source="case_data",
         )
         seen_locations[loc_key] = point
         points.append(point)
 
-    # Add hotspot overlay (known cybercrime corridors) even if no cases yet
+    # Add NCRB reference hotspot overlay — clearly labeled as reference data
+    # Source: NCRB Cybercrime Statistics 2024, CBI Press Releases
     from app.services.geocoding import INDIA_GEOCODE
     for name, (lat, lng, state, is_hotspot) in INDIA_GEOCODE.items():
         if is_hotspot and name not in seen_locations:
             point = GeoPoint(
                 lat=lat,
                 lng=lng,
-                label=name.title(),
+                label=f"{name.title()} (NCRB Reference)",
                 state=state,
                 is_hotspot=True,
-                risk_score=0.7,  # Base risk for known hotspots
+                risk_score=0.7,  # Base risk from NCRB cybercrime corridor data
                 case_count=0,
-                scam_types=["Known Cybercrime Corridor"],
+                scam_types=["NCRB Reference — Known Cybercrime Corridor"],
+                data_source="ncrb_reference",
             )
             points.append(point)
 

@@ -420,11 +420,11 @@ export default function InvestigatePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Zap className="h-4 w-4 text-cyan-400" />
-              Bayesian Risk Propagation
+              Influence-Based Risk Propagation
             </h3>
           </div>
           <p className="text-xs text-gray-500 mb-3">
-            Spread risk scores through graph edges using iterative belief propagation.
+            Spread risk scores through graph edges using Independent Cascade influence propagation.
           </p>
           <button
             onClick={async () => {

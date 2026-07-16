@@ -120,6 +120,7 @@ class GraphNode(Base):
     label = Column(String(200), nullable=False)
     properties = Column(JSON, nullable=False)
     risk_score = Column(Float)
+    data_source = Column(String(20), default="case_extracted")  # 'seed', 'case_extracted', 'ncrb_reference'
     first_seen = Column(DateTime(timezone=True))
     last_seen = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

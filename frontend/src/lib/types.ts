@@ -103,6 +103,7 @@ export interface GraphNode {
   label: string;
   properties: Record<string, unknown>;
   risk_score: number | null;
+  data_source: "seed" | "case_extracted" | "ncrb_reference";
   first_seen: string | null;
   last_seen: string | null;
 }
@@ -129,6 +130,7 @@ export interface SearchResult {
   node_type: string;
   label: string;
   risk_score: number | null;
+  data_source: "seed" | "case_extracted" | "ncrb_reference";
 }
 
 // =================== Simulate ===================

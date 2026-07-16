@@ -9,6 +9,7 @@ Model routing strategy:
 Every call is logged to audit_logs with model used, latency, and fallback info.
 """
 
+import asyncio
 import time
 import json
 import logging
@@ -110,23 +111,36 @@ class LLMService:
             try:
                 start_time = time.monotonic()
 
+                # Timeout: Gemini gets 15s, Groq gets 8s
+                timeout_s = (
+                    self.settings.PRIMARY_TIMEOUT_MS / 1000
+                    if provider == "gemini"
+                    else self.settings.FALLBACK_TIMEOUT_MS / 1000
+                )
+
                 if provider == "gemini":
-                    content = await self._call_gemini(
-                        prompt=prompt,
-                        model=model,
-                        system_instruction=system_instruction,
-                        response_format=response_format,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
+                    content = await asyncio.wait_for(
+                        self._call_gemini(
+                            prompt=prompt,
+                            model=model,
+                            system_instruction=system_instruction,
+                            response_format=response_format,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        ),
+                        timeout=timeout_s,
                     )
                 elif provider == "groq":
-                    content = await self._call_groq(
-                        prompt=prompt,
-                        model=model,
-                        system_instruction=system_instruction,
-                        response_format=response_format,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
+                    content = await asyncio.wait_for(
+                        self._call_groq(
+                            prompt=prompt,
+                            model=model,
+                            system_instruction=system_instruction,
+                            response_format=response_format,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        ),
+                        timeout=timeout_s,
                     )
                 else:
                     raise ValueError(f"Unknown provider: {provider}")

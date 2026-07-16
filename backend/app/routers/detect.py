@@ -15,6 +15,7 @@ Extended endpoints:
 - GET /api/detect/{case_id}/intelligence → Cross-case pattern linking
 """
 
+import asyncio
 import hashlib
 import io
 import json
@@ -271,15 +272,30 @@ async def analyze_text(
     # 3. Parse kill chain stages
     kill_chain = _parse_kill_chain(detection_result.get("kill_chain"))
 
-    elapsed_ms = int((time.monotonic() - start_time) * 1000)
+    # 4. Generate embedding + extract entities CONCURRENTLY (saves ~2-4s)
+    llm = get_llm_service()
+    extractor = EntityExtractor(llm_service=llm)
 
-    # 4. Generate text embedding for cross-case intelligence
-    embedding = None
-    try:
-        llm = get_llm_service()
-        embedding = await llm.embed(request.text)
-    except Exception as e:
-        logger.warning(f"Embedding generation failed: {e}")
+    async def _generate_embedding():
+        try:
+            return await llm.embed(request.text)
+        except Exception as e:
+            logger.warning(f"Embedding generation failed: {e}")
+            return None
+
+    async def _extract_entities():
+        try:
+            return await extractor.extract(request.text, use_llm=True)
+        except Exception as e:
+            logger.warning(f"Entity extraction failed: {e}")
+            return None
+
+    embedding, extraction_result = await asyncio.gather(
+        _generate_embedding(),
+        _extract_entities(),
+    )
+
+    elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
     # 5. Store case in database
     case = Case(
@@ -303,14 +319,10 @@ async def analyze_text(
     db.add(case)
     await db.flush()
 
-    # 6. Auto-extract entities and populate fraud network graph
+    # 6. Auto-populate fraud network graph from extracted entities
     graph_intel = GraphIntel()
     try:
-        llm = get_llm_service()
-        extractor = EntityExtractor(llm_service=llm)
-        extraction_result = await extractor.extract(request.text, use_llm=True)
-
-        if extraction_result.entities:
+        if extraction_result and extraction_result.entities:
             graph_service = GraphPopulationService(db)
             pop_result = await graph_service.populate_from_case(
                 case_id=case.id,
@@ -335,7 +347,7 @@ async def analyze_text(
             )
             logger.info(f"Graph auto-populated: {pop_result}")
     except Exception as e:
-        logger.warning(f"Entity extraction/graph population failed (non-critical): {e}")
+        logger.warning(f"Graph population failed (non-critical): {e}")
 
     # 7. Log to audit trail
     audit = AuditLog(
