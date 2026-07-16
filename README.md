@@ -161,7 +161,7 @@ Upload suspicious messages (text, screenshots, URLs) and NETRA performs:
 │  │  Primary: Google Gemini 2.5 Flash (text + vision)         │   │
 │  │  Fallback: Groq Llama 3 → Rule-based heuristics           │   │
 │  │  NER: Regex patterns (Indian formats) + LLM extraction     │   │
-│  │  Graph: Bayesian risk propagation across entity network     │   │
+│  │  Graph: Influence-based risk propagation across entity network │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -284,7 +284,7 @@ NETRA exposes **22 REST API endpoints** organized into 4 modules. Full interacti
 | `GET` | `/api/graph/network/{node_id}` | Get entity's connected fraud network |
 | `GET` | `/api/graph/recent` | Recently discovered entities |
 | `GET` | `/api/graph/stats` | Graph ecosystem statistics |
-| `POST` | `/api/graph/propagate-risk` | **Bayesian risk propagation** across graph edges |
+| `POST` | `/api/graph/propagate-risk` | **Influence-based risk propagation** across graph edges |
 | `GET` | `/api/graph/communities` | **Community detection** — BFS syndicate clustering |
 | `GET` | `/api/graph/intervention/{node_id}` | **Causal intervention** — "what if we freeze this?" |
 
@@ -357,7 +357,7 @@ Gemini 2.5 Flash extracts contextual entities that regex cannot:
 ### Auto-Population
 Every extracted entity is automatically:
 1. Deduplicated against existing graph nodes
-2. Assigned a Bayesian risk score
+2. Assigned an influence-based risk score
 3. Linked to the originating case via `GraphEdge`
 4. Flagged if it appears across multiple cases (syndicate indicator)
 
@@ -451,7 +451,7 @@ NETRA draws on published research in:
 ### Completed ✅
 
 - [x] **Geospatial Crime Map**: MapLibre GL JS heat map of scam origins across India (CARTO dark tiles, NCRB hotspot data)
-- [x] **Bayesian Risk Propagation**: Risk scores flow across graph edges with iterative belief propagation
+- [x] **Influence-Based Risk Propagation**: Risk scores flow across graph edges with Independent Cascade propagation (Kempe et al., KDD 2003)
 - [x] **Community Detection**: BFS connected components for automatic syndicate clustering
 - [x] **Causal Intervention Simulator**: "What if we freeze this entity?" counterfactual analysis
 - [x] **Multi-Modal Input**: Text, screenshot OCR (Gemini Vision), counterfeit currency analysis

@@ -69,7 +69,7 @@ sequenceDiagram
     D->>G: populate_graph(entities, case)
     G->>DB: Create/Link GraphNodes
     G->>DB: Create GraphEdges
-    G->>G: Compute Bayesian Risk Scores
+    G->>G: Compute Influence-Based Risk Scores
     G-->>D: GraphResult
     D->>DB: Save Case + AuditLog
     D-->>F: Full Response + Entities
@@ -99,7 +99,7 @@ graph LR
     end
 
     subgraph Intelligence["Intelligence Algorithms"]
-        BP["Bayesian Risk<br/>Propagation"]
+        BP["Influence-Based Risk<br/>Propagation"]
         CD["BFS Community<br/>Detection"]
         CI["Causal Intervention<br/>Simulator"]
     end

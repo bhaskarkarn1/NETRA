@@ -14,7 +14,7 @@ India recorded over ₹11,333 crore in cybercrime losses in 2024 alone (MHA I4C 
 
 **First**, we introduce the *Kill Chain™ Decomposition Framework*, a novel 6-stage model that maps the psychological attack progression of Indian financial scams — from initial contact through pretext fabrication, psychological pressure, victim isolation, financial extraction, to evidence destruction. This structured decomposition enables fine-grained forensic analysis that contextualizes each scam within established psychological manipulation frameworks (Cialdini, 2001; Kahneman & Tversky, 1979).
 
-**Second**, we implement a *multi-modal entity extraction pipeline* that processes text, screenshot images (WhatsApp/SMS OCR via Gemini Vision), and counterfeit currency images to automatically populate a fraud intelligence graph. The pipeline extracts Indian-specific financial identifiers (UPI VPAs, IFSC codes, mobile numbers, PAN/Aadhaar patterns) using a hybrid regex-LLM NER approach, then applies *Bayesian risk propagation* across the entity network to surface connected criminal infrastructure. Community detection via BFS-based connected components enables automated syndicate identification — when entities are shared across multiple unrelated cases, they are flagged as potential organized crime clusters.
+**Second**, we implement a *multi-modal entity extraction pipeline* that processes text, screenshot images (WhatsApp/SMS OCR via Gemini Vision), and counterfeit currency images to automatically populate a fraud intelligence graph. The pipeline extracts Indian-specific financial identifiers (UPI VPAs, IFSC codes, mobile numbers, PAN/Aadhaar patterns) using a hybrid regex-LLM NER approach, then applies *influence-based risk propagation* (Independent Cascade model; Kempe et al., KDD 2003) across the entity network to surface connected criminal infrastructure. Community detection via BFS-based connected components enables automated syndicate identification — when entities are shared across multiple unrelated cases, they are flagged as potential organized crime clusters.
 
 **Third**, we pioneer a *Causal Intervention Simulator* that enables law enforcement to model "what-if" scenarios: freezing a specific bank account, phone number, or UPI ID and calculating the downstream disruption across the fraud network. This counterfactual analysis framework, grounded in network intervention optimization theory (Albert et al., Nature 2000; Kempe et al., KDD 2003), enables evidence-based prioritization of enforcement actions.
 
@@ -25,7 +25,7 @@ The system integrates a *Geospatial Crime Intelligence Module* mapping scam orig
 Our architecture employs a 5-agent pipeline (Analyzer, Legal Mapper, Risk Scorer, Intelligence Linker, Dossier Generator) orchestrated through Google Gemini 2.5 Flash with Groq LLaMA 3.3 70B fallback, achieving sub-3-second detection latency with 96.3% average confidence across 6 scam categories. The complete platform is built with FastAPI (async Python), Next.js 15, and Neon PostgreSQL, designed for production deployment at I4C scale.
 
 ### Keywords
-Cybercrime Detection, Fraud Network Analysis, Natural Language Processing, Multi-Modal AI, Kill Chain Analysis, Bayesian Networks, Causal Inference, Digital Public Safety, India
+Cybercrime Detection, Fraud Network Analysis, Natural Language Processing, Multi-Modal AI, Kill Chain Analysis, Network Influence Propagation, Causal Inference, Digital Public Safety, India
 
 ### ACM Classification
 - Computing methodologies → Natural language processing
