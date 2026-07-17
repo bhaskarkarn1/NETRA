@@ -37,8 +37,12 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-[#09090b] text-gray-100 font-[family-name:var(--font-inter)]">
+      <body
+        className="min-h-full flex flex-col bg-[#09090b] text-gray-100 font-[family-name:var(--font-inter)]"
+        suppressHydrationWarning
+      >
         <Navbar />
         <main className="flex-1">{children}</main>
       </body>

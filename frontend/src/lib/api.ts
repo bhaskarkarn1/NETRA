@@ -18,6 +18,7 @@ import type {
   DashboardMetrics,
   ThreatFeedItem,
   IntelligenceResponse,
+  DisruptionActionFeed,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -337,5 +338,50 @@ export async function getCaseAlert(caseId: string, alertType = "I4C_ALERT"): Pro
 export async function getMapboxToken(): Promise<string> {
   const data = await request<{ token: string }>("/api/config/mapbox-token");
   return data.token;
+}
+
+// =================== Disruption API ===================
+
+export interface DisruptionResponse {
+  id: string;
+  action_type: string;
+  target_entity: string;
+  target_institution: string;
+  status: string;
+  confidence: number;
+  payload: Record<string, unknown>;
+  reasoning: string;
+  created_at: string;
+}
+
+export async function triggerBankFreeze(data: {
+  case_id?: string;
+  target_entity: string;
+  entity_type: string;
+  confidence: number;
+}): Promise<DisruptionResponse> {
+  return request<DisruptionResponse>("/api/disrupt/bank-freeze", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function triggerTelecomBlock(data: {
+  case_id?: string;
+  target_entity: string;
+  confidence: number;
+}): Promise<DisruptionResponse> {
+  return request<DisruptionResponse>("/api/disrupt/telecom-block", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getDisruptionActions(
+  limit = 20
+): Promise<DisruptionActionFeed[]> {
+  return request<DisruptionActionFeed[]>(
+    `/api/disrupt/actions?limit=${limit}`
+  );
 }
 

@@ -230,6 +230,35 @@ class AuditLog(Base):
     )
 
 
+class DisruptionAction(Base):
+    """Automated disruption actions — bank freezes, telecom blocks, alerts.
+
+    When a high-confidence scam is detected with extractable financial/telecom
+    identifiers, NETRA generates disruption payloads that would be sent to
+    banks and telecom providers via webhook. Currently simulated (no live
+    integrations), but the payload format matches real banking API patterns.
+    """
+    __tablename__ = "disruption_actions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=True)
+
+    action_type = Column(String(30), nullable=False)  # 'bank_freeze', 'telecom_block', 'alert_sent'
+    target_entity = Column(String(200), nullable=False)  # The UPI/phone/account being acted on
+    target_institution = Column(String(100))  # 'ICICI Bank', 'Airtel', 'SBI', etc.
+    status = Column(String(20), default="simulated")  # 'simulated', 'pending', 'sent', 'confirmed'
+    confidence = Column(Float)  # Scam confidence that triggered this action
+    payload = Column(JSON)  # The webhook payload that would be sent
+    reasoning = Column(Text)  # Why this action was recommended
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_disruption_case", "case_id"),
+        Index("idx_disruption_created", "created_at"),
+    )
+
+
 # ---------- Database Engine ----------
 
 _engine = None

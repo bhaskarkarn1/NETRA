@@ -23,6 +23,10 @@ import {
   Network,
   Mic,
   MicOff,
+  Landmark,
+  Phone,
+  Zap,
+  ArrowRight,
 } from "lucide-react";
 import { analyzeText, analyzeImage, analyzeCounterfeit, getDossierUrl, getIntelligence } from "@/lib/api";
 import type {
@@ -30,6 +34,8 @@ import type {
   RiskLevel,
   KillChainStage,
   IntelligenceResponse,
+  Recommendation,
+  ConfidenceBreakdown,
 } from "@/lib/types";
 import { RISK_BG_CLASSES } from "@/lib/types";
 import { useVoiceInput } from "@/hooks/use-voice-input";
@@ -937,6 +943,100 @@ export default function DetectPage() {
                 </div>
                 <ConfidenceGauge value={result.confidence} />
               </div>
+
+              {/* ★ MISSION BRIEF — First thing anyone sees */}
+              {result.scam_type && result.confidence >= 0.5 && (
+                <div
+                  className="rounded-xl p-4 space-y-3"
+                  style={{
+                    background: result.risk_level === "critical" ? "rgba(239,68,68,0.06)" : result.risk_level === "high" ? "rgba(249,115,22,0.06)" : "rgba(234,179,8,0.06)",
+                    border: `1px solid ${result.risk_level === "critical" ? "rgba(239,68,68,0.2)" : result.risk_level === "high" ? "rgba(249,115,22,0.2)" : "rgba(234,179,8,0.2)"}`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4" style={{ color: result.risk_level === "critical" ? "#ef4444" : result.risk_level === "high" ? "#f97316" : "#eab308" }} />
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Mission Brief</span>
+                  </div>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    {result.ai_reasoning.length > 200 ? result.ai_reasoning.substring(0, 200) + "..." : result.ai_reasoning}
+                  </p>
+
+                  {/* Recommendations */}
+                  {result.recommendations && result.recommendations.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Recommended Actions</span>
+                      <div className="space-y-1.5">
+                        {result.recommendations.map((rec: Recommendation, i: number) => {
+                          const actionColors: Record<string, { icon: React.ReactNode; color: string }> = {
+                            bank_freeze: { icon: <Landmark className="h-3.5 w-3.5" />, color: "#f59e0b" },
+                            telecom_block: { icon: <Phone className="h-3.5 w-3.5" />, color: "#3b82f6" },
+                            file_fir: { icon: <Scale className="h-3.5 w-3.5" />, color: "#8b5cf6" },
+                            general: { icon: <Shield className="h-3.5 w-3.5" />, color: "#06b6d4" },
+                          };
+                          const ac = actionColors[rec.action_type] || actionColors.general;
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.05]"
+                            >
+                              <div style={{ color: ac.color }}>{ac.icon}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-white">{rec.action}</span>
+                                  <span
+                                    className="text-[9px] px-1.5 py-0.5 rounded font-semibold"
+                                    style={{
+                                      color: rec.urgency === "immediate" ? "#ef4444" : rec.urgency === "within_1h" ? "#f59e0b" : "#06b6d4",
+                                      background: rec.urgency === "immediate" ? "rgba(239,68,68,0.1)" : rec.urgency === "within_1h" ? "rgba(249,115,22,0.1)" : "rgba(6,182,212,0.1)",
+                                    }}
+                                  >
+                                    {rec.urgency === "immediate" ? "IMMEDIATE" : rec.urgency === "within_1h" ? "WITHIN 1H" : "WITHIN 24H"}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-0.5 truncate">{rec.target}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-xs font-bold" style={{ color: ac.color }}>
+                                  {Math.round(rec.expected_impact * 100)}%
+                                </div>
+                                <div className="text-[9px] text-gray-600">impact</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confidence Breakdown */}
+                  {result.confidence_breakdown && (
+                    <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Confidence Breakdown</span>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          { label: "LLM", value: result.confidence_breakdown.llm_confidence, color: "#06b6d4" },
+                          { label: "Evidence", value: result.confidence_breakdown.evidence_quality, color: "#8b5cf6" },
+                          { label: "Pattern", value: result.confidence_breakdown.pattern_match, color: "#f97316" },
+                          { label: "Data", value: result.confidence_breakdown.data_completeness, color: "#22c55e" },
+                        ] as const).map((item) => (
+                          <div key={item.label} className="text-center">
+                            <div className="text-[10px] text-gray-500 mb-1">{item.label}</div>
+                            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${Math.round(item.value * 100)}%`, background: item.color }}
+                              />
+                            </div>
+                            <div className="text-[10px] font-medium mt-0.5" style={{ color: item.color }}>
+                              {Math.round(item.value * 100)}%
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* AI Reasoning */}
               <div className="space-y-2">

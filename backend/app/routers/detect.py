@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db, Case, LegalMapping, ScamPattern, AuditLog
+from app.database import get_db, Case, LegalMapping, ScamPattern, AuditLog, DisruptionAction
 from app.agents.detection import DetectionAgent
 from app.services.llm import get_llm_service
 from app.services.entity_extraction import EntityExtractor
@@ -84,6 +84,23 @@ class GraphIntel(BaseModel):
     entities_extracted: list[EntityInfo] = []
 
 
+class Recommendation(BaseModel):
+    action: str
+    target: str
+    expected_impact: float
+    urgency: str  # 'immediate', 'within_1h', 'within_24h'
+    reasoning: str
+    action_type: str = "general"  # 'bank_freeze', 'telecom_block', 'file_fir', 'general'
+
+
+class ConfidenceBreakdown(BaseModel):
+    llm_confidence: float
+    evidence_quality: float
+    pattern_match: float
+    data_completeness: float
+    overall: float
+
+
 class DetectResponse(BaseModel):
     id: str
     scam_type: str | None
@@ -100,6 +117,8 @@ class DetectResponse(BaseModel):
     model_used: str
     processing_time_ms: int
     graph_intel: GraphIntel | None = None
+    recommendations: list[Recommendation] = []
+    confidence_breakdown: ConfidenceBreakdown | None = None
 
 
 class CaseSummary(BaseModel):
@@ -349,7 +368,103 @@ async def analyze_text(
     except Exception as e:
         logger.warning(f"Graph population failed (non-critical): {e}")
 
-    # 7. Log to audit trail
+    # 7. Generate recommendations based on detected entities and confidence
+    recommendations: list[Recommendation] = []
+    scam_confidence = detection_result.get("confidence", 0.0)
+    scam_type = detection_result.get("scam_type")
+
+    if detection_result.get("is_scam") and scam_confidence >= 0.50:
+        entities_list = extraction_result.entities if extraction_result else []
+
+        for entity in entities_list:
+            if entity.entity_type == "upi_id" and scam_confidence >= 0.70:
+                recommendations.append(Recommendation(
+                    action="Freeze UPI ID",
+                    target=entity.value,
+                    expected_impact=round(min(scam_confidence * 0.95, 0.95), 2),
+                    urgency="immediate",
+                    reasoning=f"UPI ID linked to {scam_type or 'scam'} with {scam_confidence:.0%} confidence",
+                    action_type="bank_freeze",
+                ))
+            elif entity.entity_type == "bank_account" and scam_confidence >= 0.70:
+                recommendations.append(Recommendation(
+                    action="Freeze Bank Account",
+                    target=entity.value,
+                    expected_impact=round(min(scam_confidence * 0.92, 0.92), 2),
+                    urgency="immediate",
+                    reasoning=f"Account used in {scam_type or 'scam'} — immediate debit freeze recommended",
+                    action_type="bank_freeze",
+                ))
+            elif entity.entity_type == "phone" and scam_confidence >= 0.75:
+                recommendations.append(Recommendation(
+                    action="Block Phone Number",
+                    target=entity.value,
+                    expected_impact=round(min(scam_confidence * 0.85, 0.88), 2),
+                    urgency="immediate",
+                    reasoning=f"Number used for spoofed identity call in {scam_type or 'scam'}",
+                    action_type="telecom_block",
+                ))
+
+        # Standard recommendations
+        if scam_confidence >= 0.65:
+            legal_desc = ", ".join(s.code for s in legal_sections[:3]) if legal_sections else "applicable sections"
+            recommendations.append(Recommendation(
+                action="File FIR at Cyber Cell",
+                target="Nearest Cyber Police Station",
+                expected_impact=0.63,
+                urgency="within_24h",
+                reasoning=f"Applicable legal sections: {legal_desc}",
+                action_type="file_fir",
+            ))
+            recommendations.append(Recommendation(
+                action="Report on 1930 Helpline",
+                target="National Cyber Crime Helpline",
+                expected_impact=0.55,
+                urgency="immediate",
+                reasoning="MHA I4C portal for immediate complaint registration and bank account freeze",
+                action_type="general",
+            ))
+
+    # 8. Compute multi-dimensional confidence breakdown
+    entities_count = len(extraction_result.entities) if extraction_result else 0
+    high_conf_entities = len([e for e in (extraction_result.entities if extraction_result else []) if e.confidence >= 0.8])
+    evidence_quality = round(min(1.0, entities_count * 0.12 + 0.3), 2)
+    data_completeness = round(min(1.0, high_conf_entities / max(entities_count, 1)), 2) if entities_count > 0 else 0.3
+    pattern_score = 0.9 if scam_type and scam_type != "unknown" else 0.4
+    overall_confidence = round(
+        0.40 * scam_confidence +
+        0.25 * evidence_quality +
+        0.20 * pattern_score +
+        0.15 * data_completeness,
+        3
+    )
+    confidence_breakdown = ConfidenceBreakdown(
+        llm_confidence=round(scam_confidence, 3),
+        evidence_quality=evidence_quality,
+        pattern_match=pattern_score,
+        data_completeness=data_completeness,
+        overall=overall_confidence,
+    )
+
+    # 9. Auto-create disruption actions for high-confidence scams
+    if detection_result.get("is_scam") and scam_confidence >= 0.85 and extraction_result:
+        for entity in extraction_result.entities:
+            if entity.entity_type in ("upi_id", "bank_account", "phone"):
+                action_type = "bank_freeze" if entity.entity_type in ("upi_id", "bank_account") else "telecom_block"
+                institution = "Financial Institution" if action_type == "bank_freeze" else "Telecom Provider"
+                disruption = DisruptionAction(
+                    case_id=case.id,
+                    action_type=action_type,
+                    target_entity=entity.value,
+                    target_institution=institution,
+                    status="simulated",
+                    confidence=scam_confidence,
+                    payload={"auto_triggered": True, "case_id": str(case.id), "entity_type": entity.entity_type},
+                    reasoning=f"Auto-triggered: {entity.entity_type} in {scam_type} (confidence {scam_confidence:.0%})",
+                )
+                db.add(disruption)
+
+    # 10. Log to audit trail
     audit = AuditLog(
         case_id=case.id,
         agent_name="detection",
@@ -381,6 +496,8 @@ async def analyze_text(
         model_used=detection_result.get("model_used", ""),
         processing_time_ms=elapsed_ms,
         graph_intel=graph_intel,
+        recommendations=recommendations,
+        confidence_breakdown=confidence_breakdown,
     )
 
 

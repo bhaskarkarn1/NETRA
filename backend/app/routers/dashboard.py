@@ -6,18 +6,30 @@ All metrics are computed from database aggregations, not hardcoded.
 
 import logging
 
+from datetime import datetime, timezone, timedelta
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db, Case, Simulation, GraphNode, AuditLog
+from app.database import get_db, Case, Simulation, GraphNode, AuditLog, DisruptionAction, ScamPattern
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 # ---------- Schemas ----------
+
+class DisruptionActionFeed(BaseModel):
+    id: str
+    action_type: str
+    target_entity: str
+    target_institution: str
+    status: str
+    confidence: float
+    created_at: str
+
 
 class DashboardMetrics(BaseModel):
     total_cases_analyzed: int
@@ -30,6 +42,11 @@ class DashboardMetrics(BaseModel):
     most_common_scam_type: str | None
     agent_calls_total: int
     agent_fallback_count: int
+    # NEW: Command Center fields
+    threat_level: str  # 'CRITICAL', 'HIGH', 'ELEVATED', 'NORMAL'
+    estimated_financial_loss_prevented: float  # In INR
+    active_disruption_actions: int
+    recent_disruptions: list[DisruptionActionFeed]
 
 
 class ThreatFeedItem(BaseModel):
@@ -88,6 +105,74 @@ async def get_metrics(
         select(func.count(AuditLog.id)).where(AuditLog.status == "fallback")
     ) or 0
 
+    # --- NEW: Threat Level ---
+    # Computed from high-risk cases in the last 24 hours
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    high_risk_24h = await db.scalar(
+        select(func.count(Case.id)).where(
+            and_(
+                Case.risk_level.in_(["critical", "high"]),
+                Case.created_at >= cutoff,
+            )
+        )
+    ) or 0
+
+    if high_risk_24h >= 5:
+        threat_level = "CRITICAL"
+    elif high_risk_24h >= 2:
+        threat_level = "HIGH"
+    elif high_risk_24h >= 1:
+        threat_level = "ELEVATED"
+    else:
+        threat_level = "NORMAL"
+
+    # --- NEW: Financial Loss Prevented ---
+    # For each detected scam type, look up avg_loss_inr from ScamPattern table
+    # This is REAL math: count(detected scam type) × avg_loss_inr for that type
+    financial_loss_prevented = 0.0
+    if total_scams > 0:
+        scam_counts_stmt = (
+            select(Case.scam_type, func.count(Case.id).label("cnt"))
+            .where(Case.scam_type.is_not(None))
+            .group_by(Case.scam_type)
+        )
+        scam_counts_result = await db.execute(scam_counts_stmt)
+        scam_counts = {row[0]: row[1] for row in scam_counts_result.all()}
+
+        for stype, count in scam_counts.items():
+            pattern = await db.scalar(
+                select(ScamPattern.avg_loss_inr).where(
+                    ScamPattern.name == stype
+                )
+            )
+            if pattern:
+                financial_loss_prevented += pattern * count
+
+    # --- NEW: Disruption Actions ---
+    active_disruptions = await db.scalar(
+        select(func.count(DisruptionAction.id))
+    ) or 0
+
+    recent_disruptions_stmt = (
+        select(DisruptionAction)
+        .order_by(DisruptionAction.created_at.desc())
+        .limit(10)
+    )
+    rd_result = await db.execute(recent_disruptions_stmt)
+    rd_rows = rd_result.scalars().all()
+    recent_disruptions = [
+        DisruptionActionFeed(
+            id=str(d.id),
+            action_type=d.action_type,
+            target_entity=d.target_entity,
+            target_institution=d.target_institution or "",
+            status=d.status or "simulated",
+            confidence=d.confidence or 0,
+            created_at=d.created_at.isoformat() if d.created_at else "",
+        )
+        for d in rd_rows
+    ]
+
     return DashboardMetrics(
         total_cases_analyzed=total_cases,
         total_scams_detected=total_scams,
@@ -99,6 +184,10 @@ async def get_metrics(
         most_common_scam_type=most_common_scam,
         agent_calls_total=total_agent_calls,
         agent_fallback_count=fallback_count,
+        threat_level=threat_level,
+        estimated_financial_loss_prevented=round(financial_loss_prevented, 2),
+        active_disruption_actions=active_disruptions,
+        recent_disruptions=recent_disruptions,
     )
 
 

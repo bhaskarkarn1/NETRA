@@ -68,6 +68,23 @@ export interface GraphIntel {
   entities_extracted: EntityInfo[];
 }
 
+export interface Recommendation {
+  action: string;
+  target: string;
+  expected_impact: number;
+  urgency: "immediate" | "within_1h" | "within_24h";
+  reasoning: string;
+  action_type: "bank_freeze" | "telecom_block" | "file_fir" | "general";
+}
+
+export interface ConfidenceBreakdown {
+  llm_confidence: number;
+  evidence_quality: number;
+  pattern_match: number;
+  data_completeness: number;
+  overall: number;
+}
+
 export interface DetectResponse {
   id: string;
   scam_type: string | null;
@@ -84,6 +101,8 @@ export interface DetectResponse {
   model_used: string;
   processing_time_ms: number;
   graph_intel: GraphIntel | null;
+  recommendations: Recommendation[];
+  confidence_breakdown: ConfidenceBreakdown | null;
 }
 
 export interface CaseSummary {
@@ -178,6 +197,16 @@ export interface DebriefResponse {
 
 // =================== Dashboard ===================
 
+export interface DisruptionActionFeed {
+  id: string;
+  action_type: "bank_freeze" | "telecom_block" | "alert_sent";
+  target_entity: string;
+  target_institution: string;
+  status: string;
+  confidence: number;
+  created_at: string;
+}
+
 export interface DashboardMetrics {
   total_cases_analyzed: number;
   total_scams_detected: number;
@@ -189,6 +218,11 @@ export interface DashboardMetrics {
   most_common_scam_type: string | null;
   agent_calls_total: number;
   agent_fallback_count: number;
+  // Command Center fields
+  threat_level: "CRITICAL" | "HIGH" | "ELEVATED" | "NORMAL";
+  estimated_financial_loss_prevented: number;
+  active_disruption_actions: number;
+  recent_disruptions: DisruptionActionFeed[];
 }
 
 export interface ThreatFeedItem {
