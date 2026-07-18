@@ -2,13 +2,17 @@
 NETRA Dashboard Router — Metrics & Threat Feed
 
 All metrics are computed from database aggregations, not hardcoded.
+Uses 30-second in-memory cache to reduce DB round-trips on Railway/Neon.
 """
 
 import logging
+import time
+from typing import Any
 
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +21,23 @@ from app.database import get_db, Case, Simulation, GraphNode, AuditLog, Disrupti
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# ---------- In-Memory Cache (30s TTL) ----------
+_cache: dict[str, tuple[float, Any]] = {}
+CACHE_TTL = 30  # seconds
+
+
+def _get_cached(key: str) -> Any | None:
+    if key in _cache:
+        ts, data = _cache[key]
+        if time.time() - ts < CACHE_TTL:
+            return data
+        del _cache[key]
+    return None
+
+
+def _set_cached(key: str, data: Any) -> None:
+    _cache[key] = (time.time(), data)
 
 
 # ---------- Schemas ----------
@@ -65,6 +86,11 @@ async def get_metrics(
     db: AsyncSession = Depends(get_db),
 ):
     """Dashboard statistics — all computed from database, nothing hardcoded."""
+
+    # Cache-first: return cached data if fresh (< 30s old)
+    cached = _get_cached("metrics")
+    if cached is not None:
+        return cached
 
     # Cases
     total_cases = await db.scalar(select(func.count(Case.id))) or 0
@@ -173,7 +199,7 @@ async def get_metrics(
         for d in rd_rows
     ]
 
-    return DashboardMetrics(
+    result = DashboardMetrics(
         total_cases_analyzed=total_cases,
         total_scams_detected=total_scams,
         average_confidence=round(float(avg_conf), 3),
@@ -190,6 +216,9 @@ async def get_metrics(
         recent_disruptions=recent_disruptions,
     )
 
+    _set_cached("metrics", result)
+    return result
+
 
 @router.get("/threat-feed", response_model=list[ThreatFeedItem])
 async def get_threat_feed(
@@ -197,6 +226,9 @@ async def get_threat_feed(
     db: AsyncSession = Depends(get_db),
 ):
     """Recent threat activity feed — pulled from cases and simulations."""
+    cached = _get_cached(f"threat-feed-{limit}")
+    if cached is not None:
+        return cached
     items: list[ThreatFeedItem] = []
 
     # Recent cases
@@ -231,7 +263,9 @@ async def get_threat_feed(
 
     # Sort by timestamp descending
     items.sort(key=lambda x: x.timestamp, reverse=True)
-    return items[:limit]
+    result = items[:limit]
+    _set_cached(f"threat-feed-{limit}", result)
+    return result
 
 
 # ---------- Analytics ----------
@@ -295,6 +329,10 @@ async def get_analytics(
     db: AsyncSession = Depends(get_db),
 ):
     """Chart-ready analytics data for the Command Center dashboard."""
+    cached = _get_cached("analytics")
+    if cached is not None:
+        return cached
+
     from app.database import GraphEdge
     from datetime import datetime, timedelta, timezone
 
@@ -387,13 +425,15 @@ async def get_analytics(
         for n in top_result.scalars().all()
     ]
 
-    return AnalyticsResponse(
+    result = AnalyticsResponse(
         scam_type_distribution=scam_type_distribution,
         risk_level_breakdown=risk_level_breakdown,
         daily_trend=daily_trend,
         entity_type_breakdown=entity_type_breakdown,
         top_entities=top_entities,
     )
+    _set_cached("analytics", result)
+    return result
 
 
 # ---------- Geospatial Intelligence ----------
@@ -421,7 +461,12 @@ async def get_geospatial_data(db: AsyncSession = Depends(get_db)):
     """
     Returns geocoded scam origin locations from the fraud graph.
     Location nodes are geocoded using local Indian city/state lookup.
+    Cached for 60 seconds since geo data changes infrequently.
     """
+    cached = _get_cached("geospatial")
+    if cached is not None:
+        return cached
+
     from app.database import GraphEdge
     from app.services.geocoding import geocode_location
 
@@ -512,10 +557,12 @@ async def get_geospatial_data(db: AsyncSession = Depends(get_db)):
             )
             points.append(point)
 
-    return GeospatialResponse(
+    result = GeospatialResponse(
         points=points,
         total_locations=len(points),
         hotspot_count=sum(1 for p in points if p.is_hotspot),
     )
+    _set_cached("geospatial", result)
+    return result
 
 
