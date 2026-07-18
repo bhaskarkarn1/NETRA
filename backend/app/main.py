@@ -52,14 +52,24 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — include deployed frontend URL if set
+    # CORS — include deployed frontend URL + all Vercel preview domains
     cors_origins = list(settings.CORS_ORIGINS)
     if settings.FRONTEND_URL and settings.FRONTEND_URL not in cors_origins:
         cors_origins.append(settings.FRONTEND_URL)
 
+    # Always allow Vercel deployment domains
+    vercel_domains = [
+        "https://netra-dusky.vercel.app",
+        "https://netra.vercel.app",
+    ]
+    for domain in vercel_domains:
+        if domain not in cors_origins:
+            cors_origins.append(domain)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
+        allow_origin_regex=r"https://netra.*\.vercel\.app",  # All Vercel preview URLs
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
