@@ -1211,12 +1211,18 @@ async def analyze_image(
 
     # Step 2: Run full detection pipeline on extracted text
     detection_result = None
+    detection_error = None
     try:
         # Use the internal analyze logic
         detect_request = DetectRequest(text=extracted_text, input_type="screenshot")
         detection_result = await analyze_text(detect_request, db)
     except Exception as e:
+        err_str = str(e)
         logger.warning(f"Detection on extracted text failed: {e}")
+        if "quota" in err_str.lower() or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            detection_error = "Gemini API quota exhausted. Free tier limit reached. Please wait and try again."
+        else:
+            detection_error = f"Analysis failed: please try again."
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 
@@ -1228,10 +1234,14 @@ async def analyze_image(
         output_summary=f"Extracted {len(extracted_text)} chars, {'analyzed' if detection_result else 'no analysis'}",
         model_used=ocr_response.model_used,
         latency_ms=elapsed_ms,
-        status="success",
+        status="success" if detection_result else "partial",
     )
     db.add(audit)
     await db.commit()
+
+    # If detection failed due to quota, raise so frontend sees the error
+    if not detection_result and detection_error:
+        raise HTTPException(status_code=429 if "quota" in (detection_error or "").lower() else 500, detail=detection_error)
 
     return ImageAnalyzeResponse(
         extracted_text=extracted_text,
@@ -1326,8 +1336,17 @@ async def analyze_counterfeit(
             raise ValueError("Could not parse analysis response as JSON")
 
     except Exception as e:
+        err_str = str(e)
         logger.error(f"Counterfeit analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Currency analysis failed: {e}")
+        if "quota" in err_str.lower() or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            raise HTTPException(
+                status_code=429,
+                detail="Gemini API quota exhausted. Free tier limit reached. Please wait a few minutes and try again."
+            )
+        raise HTTPException(
+            status_code=500,
+            detail="Currency analysis failed. Please try again in a moment."
+        )
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 

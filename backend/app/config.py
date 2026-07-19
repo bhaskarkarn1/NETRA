@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     GROQ_FAST_MODEL: str = "llama-3.1-8b-instant"
 
     # AI Model routing
-    PRIMARY_TIMEOUT_MS: int = 15000
+    PRIMARY_TIMEOUT_MS: int = 30000
     FALLBACK_TIMEOUT_MS: int = 8000
     MAX_RETRIES: int = 2
 

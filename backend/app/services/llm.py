@@ -215,7 +215,7 @@ class LLMService:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        """Call Google Gemini API."""
+        """Call Google Gemini API with retry on 429 rate limit errors."""
         config = genai_types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
@@ -225,16 +225,34 @@ class LLMService:
         if response_format == "json":
             config.response_mime_type = "application/json"
 
-        response = await self.gemini_client.aio.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config,
-        )
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=config,
+                )
 
-        if not response.text:
-            raise ValueError("Gemini returned empty response")
+                if not response.text:
+                    raise ValueError("Gemini returned empty response")
 
-        return response.text
+                return response.text
+            except Exception as e:
+                err_str = str(e)
+                is_rate_limit = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
+                if is_rate_limit and attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 5  # 5s, 10s
+                    logger.warning(f"Gemini 429 rate limit hit (attempt {attempt+1}/{max_retries}). Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                    continue
+                elif is_rate_limit:
+                    raise RuntimeError(
+                        "Gemini API quota exhausted. The free tier allows 20 requests/day for gemini-2.5-flash. "
+                        "Please wait a few minutes or upgrade your API plan."
+                    )
+                raise  # Non-rate-limit errors propagate immediately
+        raise RuntimeError("Gemini call failed after retries")
 
     async def _call_groq(
         self,
@@ -327,6 +345,14 @@ class LLMService:
             
         except Exception as e:
             elapsed_ms = int((time.monotonic() - start_time) * 1000)
+            err_str = str(e)
+            is_rate_limit = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
+            if is_rate_limit:
+                logger.error(f"Gemini Vision rate limited: {e}")
+                raise RuntimeError(
+                    "Gemini API quota exhausted. Free tier limit reached. "
+                    "Please wait a few minutes or upgrade your API plan."
+                )
             logger.error(f"Gemini Vision analysis failed: {e}")
             raise
 

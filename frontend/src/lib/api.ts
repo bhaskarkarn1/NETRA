@@ -36,30 +36,45 @@ class ApiError extends Error {
 
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = 120000, // 2 minutes default
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    let detail = `HTTP ${response.status}`;
-    try {
-      const errorData = await response.json();
-      detail = errorData.detail || detail;
-    } catch {
-      // ignore parse errors
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        detail = errorData.detail || detail;
+      } catch {
+        // ignore parse errors
+      }
+      throw new ApiError(response.status, detail);
     }
-    throw new ApiError(response.status, detail);
-  }
 
-  return response.json();
+    return response.json();
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(408, "Request timed out. The server may be busy — please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // =================== Detect API ===================
@@ -411,7 +426,7 @@ export interface EvaluationResult {
 }
 
 export async function runEvaluation(): Promise<EvaluationResult> {
-  return request<EvaluationResult>("/api/evaluation/run", { method: "POST" });
+  return request<EvaluationResult>("/api/evaluation/run", { method: "POST" }, 300000); // 5 min timeout
 }
 
 export async function getLatestEvaluation(): Promise<EvaluationResult> {
