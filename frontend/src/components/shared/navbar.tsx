@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Shield, Search, Network, Swords, LayoutDashboard } from "lucide-react";
+import { Shield, Search, Network, Swords, LayoutDashboard, BarChart3 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/detect", label: "Detect", icon: Search },
   { href: "/investigate", label: "Investigate", icon: Network },
   { href: "/simulate", label: "Simulate", icon: Swords },
+  { href: "/evaluation", label: "Evaluation", icon: BarChart3 },
 ];
 
 export function Navbar() {

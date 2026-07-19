@@ -259,6 +259,65 @@ class DisruptionAction(Base):
     )
 
 
+class EvaluationRun(Base):
+    """Benchmark evaluation results — proves NETRA works with hard numbers."""
+    __tablename__ = "evaluation_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Core metrics
+    total_cases = Column(Integer, nullable=False)
+    true_positives = Column(Integer, default=0)
+    true_negatives = Column(Integer, default=0)
+    false_positives = Column(Integer, default=0)
+    false_negatives = Column(Integer, default=0)
+    precision = Column(Float, nullable=False)
+    recall = Column(Float, nullable=False)
+    f1_score = Column(Float, nullable=False)
+    accuracy = Column(Float, nullable=False)
+
+    # Detailed breakdown
+    confusion_matrix = Column(JSON)  # {actual: {predicted: count}}
+    per_category = Column(JSON)  # {category: {precision, recall, f1}}
+    misclassifications = Column(JSON)  # [{text, expected, got}]
+
+    # Baseline comparison
+    baseline_model = Column(String(50))  # 'tfidf_svm', 'tfidf_logreg'
+    baseline_f1 = Column(Float)
+    baseline_precision = Column(Float)
+    baseline_recall = Column(Float)
+    improvement_pct = Column(Float)  # (netra_f1 - baseline_f1) / baseline_f1 * 100
+
+    # Metadata
+    llm_model = Column(String(50))
+    duration_seconds = Column(Integer)
+    run_date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_eval_date", "run_date"),
+    )
+
+
+class DiscoveredPattern(Base):
+    """Auto-discovered scam patterns from embedding clustering (SETIE Layer 2)."""
+    __tablename__ = "discovered_patterns"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pattern_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    cluster_size = Column(Integer, nullable=False)
+    avg_similarity = Column(Float)  # Average cosine similarity within cluster
+    representative_cases = Column(JSON)  # Array of case IDs
+    keywords = Column(JSON)  # Auto-extracted keywords from cluster
+    status = Column(String(20), default="candidate")  # 'candidate', 'confirmed', 'rejected'
+    first_seen = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_discovered_status", "status"),
+    )
+
+
 # ---------- Database Engine ----------
 
 _engine = None

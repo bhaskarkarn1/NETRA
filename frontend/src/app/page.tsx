@@ -689,6 +689,40 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* SETIE — Intelligence Overview */}
+        <motion.div variants={item} className="glass-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-cyan-400" />
+              Threat Intelligence Engine (SETIE)
+            </h3>
+            <Link
+              href="/evaluation"
+              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition"
+            >
+              Full Report <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/10 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-white/40">Detection Model</p>
+              <p className="text-sm font-bold text-cyan-400 mt-1">Gemini + Kill Chain</p>
+            </div>
+            <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-white/40">Cross-Case Intel</p>
+              <p className="text-sm font-bold text-emerald-400 mt-1">Embedding Similarity</p>
+            </div>
+            <div className="rounded-lg bg-purple-500/5 border border-purple-500/10 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-white/40">Graph Algorithms</p>
+              <p className="text-sm font-bold text-purple-400 mt-1">PageRank + Louvain</p>
+            </div>
+            <div className="rounded-lg bg-orange-500/5 border border-orange-500/10 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-white/40">Pattern Discovery</p>
+              <p className="text-sm font-bold text-orange-400 mt-1">DBSCAN Clustering</p>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Agent System Status */}
         <motion.div variants={item} className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">

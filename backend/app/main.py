@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database import init_db, close_db
 from app.routers import detect, graph, simulate, dashboard, disrupt
+from app.routers.evaluation import eval_router, intel_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,6 +82,8 @@ def create_app() -> FastAPI:
     app.include_router(simulate.router, prefix="/api/simulate", tags=["Simulate"])
     app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
     app.include_router(disrupt.router, prefix="/api/disrupt", tags=["Disrupt"])
+    app.include_router(eval_router, prefix="/api/evaluation", tags=["Evaluation"])
+    app.include_router(intel_router, prefix="/api/intelligence", tags=["Intelligence"])
 
     @app.get("/", tags=["Health"])
     async def health_check():

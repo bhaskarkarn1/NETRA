@@ -101,6 +101,13 @@ class ConfidenceBreakdown(BaseModel):
     overall: float
 
 
+class RelatedIntelligence(BaseModel):
+    similar_cases: list[dict] = []
+    syndicate_signal: bool = False
+    shared_entities: list[str] = []
+    total_related: int = 0
+
+
 class DetectResponse(BaseModel):
     id: str
     scam_type: str | None
@@ -119,6 +126,7 @@ class DetectResponse(BaseModel):
     graph_intel: GraphIntel | None = None
     recommendations: list[Recommendation] = []
     confidence_breakdown: ConfidenceBreakdown | None = None
+    related_intelligence: RelatedIntelligence | None = None
 
 
 class CaseSummary(BaseModel):
@@ -464,7 +472,40 @@ async def analyze_text(
                 )
                 db.add(disruption)
 
-    # 10. Log to audit trail
+    # 10. Cross-case intelligence via embeddings (SETIE Layer 1)
+    related_intel = RelatedIntelligence()
+    try:
+        if embedding:
+            from app.services.embeddings import get_embedding_service
+            embed_svc = get_embedding_service()
+            similar = await embed_svc.find_similar_cases(
+                embedding, db, threshold=0.75, limit=5, exclude_case_id=str(case.id)
+            )
+            if similar:
+                # Check for shared entities (syndicate signal)
+                case_entities = set()
+                if extraction_result:
+                    case_entities = {e.value for e in extraction_result.entities}
+
+                all_shared = []
+                for s in similar:
+                    # Quick shared entity check via snippet matching
+                    for ent in case_entities:
+                        if ent in s.snippet:
+                            all_shared.append(ent)
+                            s.shared_entities.append(ent)
+
+                related_intel = RelatedIntelligence(
+                    similar_cases=[s.to_dict() for s in similar],
+                    syndicate_signal=len(all_shared) > 0,
+                    shared_entities=list(set(all_shared)),
+                    total_related=len(similar),
+                )
+                logger.info(f"Found {len(similar)} related cases, syndicate_signal={related_intel.syndicate_signal}")
+    except Exception as e:
+        logger.warning(f"Related intelligence failed (non-critical): {e}")
+
+    # 11. Log to audit trail
     audit = AuditLog(
         case_id=case.id,
         agent_name="detection",
@@ -498,6 +539,7 @@ async def analyze_text(
         graph_intel=graph_intel,
         recommendations=recommendations,
         confidence_breakdown=confidence_breakdown,
+        related_intelligence=related_intel,
     )
 
 

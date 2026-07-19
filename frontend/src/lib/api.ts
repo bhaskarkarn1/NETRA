@@ -385,3 +385,92 @@ export async function getDisruptionActions(
   );
 }
 
+// ---------- Evaluation API (SETIE Layer 3: Proof) ----------
+
+export interface EvaluationResult {
+  f1_score: number;
+  precision: number;
+  recall: number;
+  accuracy: number;
+  total_cases: number;
+  true_positives: number;
+  true_negatives: number;
+  false_positives: number;
+  false_negatives: number;
+  confusion_matrix: Record<string, Record<string, number>>;
+  per_category: Record<string, { precision: number; recall: number; f1: number; accuracy: number; total: number }>;
+  baseline_f1: number | null;
+  baseline_precision: number | null;
+  baseline_recall: number | null;
+  improvement_pct: number | null;
+  baseline_model: string | null;
+  llm_model: string | null;
+  duration_seconds: number;
+  run_date?: string;
+  status?: string;
+}
+
+export async function runEvaluation(): Promise<EvaluationResult> {
+  return request<EvaluationResult>("/api/evaluation/run", { method: "POST" });
+}
+
+export async function getLatestEvaluation(): Promise<EvaluationResult> {
+  return request<EvaluationResult>("/api/evaluation/latest");
+}
+
+export async function getEvaluationHistory(): Promise<EvaluationResult[]> {
+  return request<EvaluationResult[]>("/api/evaluation/history");
+}
+
+// ---------- Intelligence API (SETIE Layer 1 & 2) ----------
+
+export interface PageRankEntity {
+  node_id: string;
+  label: string;
+  node_type: string;
+  score: number;
+  rank: number;
+  connected_cases: number;
+}
+
+export interface IntelCommunity {
+  community_id: number;
+  members: { node_id: string; label: string; type: string; pagerank: number }[];
+  size: number;
+  density: number;
+  key_entities: string[];
+}
+
+export interface IntelGraphStats {
+  total_nodes: number;
+  total_edges: number;
+  density: number;
+  avg_degree: number;
+  connected_components: number;
+  largest_component_size: number;
+  communities_detected: number;
+}
+
+export async function getIntelligencePageRank(topN = 10): Promise<{ algorithm: string; entities: PageRankEntity[] }> {
+  return request(`/api/intelligence/pagerank?top_n=${topN}`);
+}
+
+export async function getIntelligenceCommunities(): Promise<{ communities: IntelCommunity[]; total: number }> {
+  return request(`/api/intelligence/communities`);
+}
+
+export async function getIntelligenceGraphStats(): Promise<IntelGraphStats> {
+  return request(`/api/intelligence/graph-stats`);
+}
+
+export async function getCaseClusters(): Promise<{ clusters: unknown[]; total_clusters: number }> {
+  return request(`/api/intelligence/clusters`);
+}
+
+export async function runPatternDiscovery(): Promise<{ discovered: number; patterns: string[] }> {
+  return request(`/api/intelligence/discover`, { method: "POST" });
+}
+
+export async function getDiscoveredPatterns(): Promise<unknown[]> {
+  return request(`/api/intelligence/discovered-patterns`);
+}
