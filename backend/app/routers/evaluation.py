@@ -25,9 +25,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import (
     get_db, Case, EvaluationRun, DiscoveredPattern, ScamPattern
 )
-from app.services.embeddings import get_embedding_service
-from app.services.baseline_model import BaselineClassifier
-from app.services.graph_intelligence import GraphIntelligenceService
+# NOTE: Embedding, baseline, and graph services are imported lazily inside
+# each endpoint to avoid startup failures if scikit-learn/networkx/numpy
+# aren't installed yet (Railway builds can be slow).
 from app.evaluation.benchmark import EVALUATION_DATASET
 
 logger = logging.getLogger(__name__)
@@ -166,6 +166,7 @@ async def run_evaluation(db: AsyncSession = Depends(get_db)):
         }
 
     # --- Train Baseline Model ---
+    from app.services.baseline_model import BaselineClassifier
     baseline = BaselineClassifier()
     baseline_texts = [tc.text for tc in EVALUATION_DATASET]
     baseline_labels = [tc.expected_type or "benign" for tc in EVALUATION_DATASET]
@@ -312,6 +313,7 @@ async def find_similar_cases(case_id: str, db: AsyncSession = Depends(get_db)):
 
     if not case.embedding:
         # Generate embedding on-the-fly
+        from app.services.embeddings import get_embedding_service
         svc = get_embedding_service()
         embedding = await svc.embed_text(case.input_text)
         case.embedding = embedding
@@ -319,7 +321,8 @@ async def find_similar_cases(case_id: str, db: AsyncSession = Depends(get_db)):
     else:
         embedding = case.embedding
 
-    svc = get_embedding_service()
+    from app.services.embeddings import get_embedding_service as _get_embed_svc
+    svc = _get_embed_svc()
     similar = await svc.find_similar_cases(
         embedding, db, threshold=0.75, limit=10, exclude_case_id=case_id
     )
@@ -334,6 +337,7 @@ async def find_similar_cases(case_id: str, db: AsyncSession = Depends(get_db)):
 @intel_router.get("/clusters")
 async def get_case_clusters(db: AsyncSession = Depends(get_db)):
     """Run DBSCAN clustering on all case embeddings to discover patterns."""
+    from app.services.embeddings import get_embedding_service
     svc = get_embedding_service()
     clusters = await svc.cluster_cases(db)
 
@@ -387,6 +391,7 @@ async def run_pattern_discovery(db: AsyncSession = Depends(get_db)):
     """
     from app.services.llm import get_llm_service
 
+    from app.services.embeddings import get_embedding_service
     svc = get_embedding_service()
     clusters = await svc.cluster_cases(db)
 
@@ -450,6 +455,7 @@ Respond in JSON:
 @intel_router.get("/graph-stats")
 async def get_graph_stats(db: AsyncSession = Depends(get_db)):
     """Get comprehensive graph statistics including algorithm results."""
+    from app.services.graph_intelligence import GraphIntelligenceService
     svc = GraphIntelligenceService()
     stats = await svc.get_graph_stats(db)
     return stats.to_dict()
@@ -458,6 +464,7 @@ async def get_graph_stats(db: AsyncSession = Depends(get_db)):
 @intel_router.get("/pagerank")
 async def get_pagerank(top_n: int = 10, db: AsyncSession = Depends(get_db)):
     """Get top entities ranked by PageRank algorithm."""
+    from app.services.graph_intelligence import GraphIntelligenceService
     svc = GraphIntelligenceService()
     ranked = await svc.get_pagerank(db, top_n=top_n)
     return {
@@ -470,6 +477,7 @@ async def get_pagerank(top_n: int = 10, db: AsyncSession = Depends(get_db)):
 @intel_router.get("/communities")
 async def get_communities(db: AsyncSession = Depends(get_db)):
     """Detect fraud syndicates using Louvain community detection."""
+    from app.services.graph_intelligence import GraphIntelligenceService
     svc = GraphIntelligenceService()
     communities = await svc.detect_communities(db)
     return {
@@ -483,6 +491,7 @@ async def get_communities(db: AsyncSession = Depends(get_db)):
 @intel_router.get("/centrality")
 async def get_centrality(top_n: int = 10, db: AsyncSession = Depends(get_db)):
     """Get multi-metric centrality analysis (degree, betweenness, eigenvector)."""
+    from app.services.graph_intelligence import GraphIntelligenceService
     svc = GraphIntelligenceService()
     centrality = await svc.get_centrality(db, top_n=top_n)
     return {
