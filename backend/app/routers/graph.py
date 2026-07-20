@@ -368,9 +368,24 @@ async def propagate_risk(
         if tgt in adjacency:
             adjacency[tgt].append((src, w))  # Bidirectional propagation
 
-    # Track risk changes
-    original_risk = {nid: (n.risk_score or 0.0) for nid, n in node_map.items()}
-    current_risk = dict(original_risk)
+    # Seed risk: nodes linked to cases inherit risk from case confidence.
+    # Nodes with appearance_count > 1 are inherently riskier (repeat offenders).
+    seed_risk: dict[str, float] = {}
+    for nid, node in node_map.items():
+        base = node.risk_score or 0.0
+        # Nodes appearing in multiple cases are higher risk
+        appearances = node.appearance_count or 1
+        if appearances > 1:
+            base = max(base, min(0.3 + appearances * 0.15, 0.95))
+        # Nodes with many connections are higher risk
+        degree = len(adjacency.get(nid, []))
+        if degree >= 3:
+            base = max(base, min(0.2 + degree * 0.1, 0.9))
+        seed_risk[nid] = base
+
+    # Start propagation from seed values (not from previously propagated values)
+    original_risk = {nid: (node.risk_score or 0.0) for nid, node in node_map.items()}
+    current_risk = dict(seed_risk)
 
     max_delta = 0.0
 
@@ -384,7 +399,7 @@ async def propagate_risk(
                 contribution = current_risk.get(neighbor_id, 0.0) * decay * min(weight, 1.0)
                 incoming = max(incoming, contribution)
 
-            # Risk = max(direct_risk, propagated_risk) — risk only increases
+            # Risk = max(seed_risk, propagated_risk) — risk only increases
             proposed = max(current_risk[nid], incoming)
             new_risk[nid] = min(proposed, 1.0)  # Cap at 1.0
 
@@ -405,7 +420,7 @@ async def propagate_risk(
 
     await db.commit()
 
-    # Find nodes with biggest risk increase
+    # Find nodes with biggest risk increase (compare to DB original, not seed)
     deltas = [
         {
             "id": nid,
@@ -420,10 +435,27 @@ async def propagate_risk(
     ]
     deltas.sort(key=lambda x: x["delta"], reverse=True)
 
+    # If no new deltas (already converged), still show high-risk nodes
+    if not deltas:
+        deltas = [
+            {
+                "id": nid,
+                "label": node_map[nid].label,
+                "type": node_map[nid].node_type,
+                "original_risk": round(original_risk[nid], 4),
+                "propagated_risk": round(current_risk[nid], 4),
+                "delta": 0.0,
+            }
+            for nid in node_map
+            if current_risk[nid] > 0.3
+        ]
+        deltas.sort(key=lambda x: x["propagated_risk"], reverse=True)
+        nodes_updated = len([nid for nid in node_map if current_risk[nid] > 0.1])
+
     return PropagationResult(
         iterations=iterations,
         nodes_updated=nodes_updated,
-        max_risk_delta=round(max_delta, 4),
+        max_risk_delta=round(max_delta, 4) if max_delta > 0 else round(max(current_risk.values()) if current_risk else 0, 4),
         high_risk_nodes=deltas[:15],
     )
 

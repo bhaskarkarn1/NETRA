@@ -5,7 +5,7 @@ Model routing strategy:
 1. Primary: Gemini 2.5 Flash (deep analysis, classification, generation)
 2. Fast fallback: Groq Llama 3.3 70B (if Gemini fails or times out)
 3. Ultra-fast: Groq Llama 3.1 8B (simple extraction, language detection)
-4. Vision: Gemini Vision → Groq Vision (llama-3.2-11b-vision-preview)
+4. Vision: Gemini 2.5 Flash → Gemini 2.0 Flash Lite (Groq Vision decommissioned)
 
 Every call is logged to audit_logs with model used, latency, and fallback info.
 """
@@ -329,12 +329,11 @@ class LLMService:
         start_time = time.monotonic()
         last_error = None
 
-        # Vision fallback chain
+        # Vision fallback chain (Groq Vision decommissioned — use Gemini models only)
         vision_chain = []
         if self.settings.GOOGLE_API_KEY:
             vision_chain.append(("gemini", self.settings.GEMINI_MODEL))
-        if self.settings.GROQ_API_KEY:
-            vision_chain.append(("groq", self.settings.GROQ_VISION_MODEL))
+            vision_chain.append(("gemini", self.settings.GEMINI_LITE_MODEL))
 
         for i, (provider, model) in enumerate(vision_chain):
             try:

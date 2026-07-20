@@ -45,7 +45,7 @@ router = APIRouter()
 
 class DetectRequest(BaseModel):
     text: str = Field(..., min_length=5, max_length=10000, description="Suspicious message or call transcript")
-    input_type: str = Field(default="text", pattern="^(text|transcript|url)$")
+    input_type: str = Field(default="text", pattern="^(text|transcript|url|screenshot)$")
 
 
 class TacticDetected(BaseModel):
@@ -1172,27 +1172,48 @@ async def analyze_image(
             raise
         raise HTTPException(status_code=400, detail=f"Invalid base64 image data: {e}")
 
-    # Step 1: OCR via Vision (Gemini → Groq fallback)
+    # Step 1: OCR via Vision (Gemini primary → Gemini Lite fallback)
     ocr_model_used = "unknown"
-    try:
-        ocr_response = await llm.vision_analyze(
-            image_base64=request.image_base64,
-            prompt=IMAGE_OCR_PROMPT,
-            system_instruction="You are a precise OCR engine. Extract text exactly as shown.",
-            mime_type=request.mime_type,
-            temperature=0.1,
-        )
-        extracted_text = ocr_response.content.strip()
-        ocr_model_used = ocr_response.model_used
-    except Exception as e:
-        logger.warning(f"Image OCR failed (all models): {e}")
-        # Return graceful result — no error shown to user
-        return ImageAnalyzeResponse(
-            extracted_text="",
-            detection_result=None,
-            ocr_confidence=0.0,
-            image_description="Image received. Text extraction is temporarily unavailable — please try the Message tab instead.",
-        )
+    extracted_text = ""
+
+    # Try vision OCR with a retry (Gemini quotas can reset quickly)
+    for attempt in range(2):
+        try:
+            ocr_response = await llm.vision_analyze(
+                image_base64=request.image_base64,
+                prompt=IMAGE_OCR_PROMPT,
+                system_instruction="You are a precise OCR engine. Extract text exactly as shown.",
+                mime_type=request.mime_type,
+                temperature=0.1,
+            )
+            extracted_text = ocr_response.content.strip()
+            ocr_model_used = ocr_response.model_used
+            break  # Success
+        except Exception as e:
+            logger.warning(f"Image OCR attempt {attempt + 1} failed: {e}")
+            if attempt == 0:
+                import asyncio as _aio
+                await _aio.sleep(2)  # Brief wait before retry (quota may reset)
+                continue
+            # Both attempts failed — try a simpler vision prompt as last resort
+            try:
+                simple_response = await llm.vision_analyze(
+                    image_base64=request.image_base64,
+                    prompt="Read ALL text visible in this image. Output only the text content, nothing else.",
+                    mime_type=request.mime_type,
+                    temperature=0.2,
+                )
+                extracted_text = simple_response.content.strip()
+                ocr_model_used = simple_response.model_used
+            except Exception as e2:
+                logger.warning(f"Final OCR attempt also failed: {e2}")
+                # Return a result that still looks professional
+                return ImageAnalyzeResponse(
+                    extracted_text="",
+                    detection_result=None,
+                    ocr_confidence=0.0,
+                    image_description="Image received. AI models are temporarily at capacity — please try again in a few seconds.",
+                )
 
     if not extracted_text or extracted_text == "[NO TEXT DETECTED]":
         # Get image description instead
