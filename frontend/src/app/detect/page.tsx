@@ -518,7 +518,7 @@ export default function DetectPage() {
   );
   const [result, setResult] = useState<DetectResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   const [mode, setMode] = useState<"text" | "screenshot" | "counterfeit">("text");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -536,7 +536,6 @@ export default function DetectPage() {
     if (!input.trim() || input.trim().length < 5) return;
 
     setLoading(true);
-    setError(null);
     setResult(null);
 
     try {
@@ -546,7 +545,7 @@ export default function DetectPage() {
       });
       setResult(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      console.error("Analysis issue:", err);
     } finally {
       setLoading(false);
     }
@@ -554,7 +553,6 @@ export default function DetectPage() {
 
   const handleImageUpload = (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
-      setError("Image too large (max 10MB)");
       return;
     }
     const reader = new FileReader();
@@ -565,7 +563,6 @@ export default function DetectPage() {
       const base64 = dataUrl.split(",")[1];
       setImageBase64(base64);
       setImageMime(file.type || "image/jpeg");
-      setError(null);
     };
     reader.readAsDataURL(file);
   };
@@ -573,7 +570,6 @@ export default function DetectPage() {
   const handleImageAnalyze = async () => {
     if (!imageBase64) return;
     setLoading(true);
-    setError(null);
     setResult(null);
     setExtractedText(null);
 
@@ -584,7 +580,7 @@ export default function DetectPage() {
         setResult(response.detection_result);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Image analysis failed");
+      console.error("Image analysis issue:", err);
     } finally {
       setLoading(false);
     }
@@ -593,14 +589,13 @@ export default function DetectPage() {
   const handleCounterfeitAnalyze = async () => {
     if (!imageBase64) return;
     setLoading(true);
-    setError(null);
     setCounterfeitResult(null);
 
     try {
       const response = await analyzeCounterfeit(imageBase64, imageMime);
       setCounterfeitResult(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Counterfeit analysis failed");
+      console.error("Counterfeit analysis issue:", err);
     } finally {
       setLoading(false);
     }
@@ -649,7 +644,7 @@ export default function DetectPage() {
             ]).map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => { setMode(key); setError(null); setResult(null); setCounterfeitResult(null); setExtractedText(null); }}
+                onClick={() => { setMode(key); setResult(null); setCounterfeitResult(null); setExtractedText(null); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   mode === key
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
@@ -832,11 +827,7 @@ export default function DetectPage() {
             </>
           )}
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
-              {error}
-            </div>
-          )}
+
 
           {/* Counterfeit Result Panel */}
           {counterfeitResult && mode === "counterfeit" && (

@@ -43,7 +43,6 @@ export default function InvestigatePage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [searching, setSearching] = useState(false);
   const [loadingGraph, setLoadingGraph] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [recentEntities, setRecentEntities] = useState<SearchResult[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
 
@@ -71,17 +70,13 @@ export default function InvestigatePage() {
   const handleSearch = async () => {
     if (!query.trim() || query.trim().length < 2) return;
     setSearching(true);
-    setError(null);
     setSearchResults([]);
 
     try {
       const results = await searchNodes(query.trim());
       setSearchResults(results);
-      if (results.length === 0) {
-        setError("No entities found matching your search.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed");
+    } catch {
+      // Silently handle — no error messages
     } finally {
       setSearching(false);
     }
@@ -89,17 +84,15 @@ export default function InvestigatePage() {
 
   const handleSelectNode = async (nodeId: string) => {
     setLoadingGraph(true);
-    setError(null);
 
     try {
       const network = await getNetwork(nodeId, 2);
       setNetworkData(network);
-      setSearchResults([]); // Hide search results
-      // Find and set center node
+      setSearchResults([]);
       const center = network.nodes.find((n) => n.id === network.center_node_id);
       if (center) setSelectedNode(center);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load network");
+    } catch {
+      // Silently handle — no error messages
     } finally {
       setLoadingGraph(false);
     }
@@ -203,10 +196,6 @@ export default function InvestigatePage() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {error && (
-          <p className="mt-3 text-sm text-red-400">{error}</p>
-        )}
       </motion.div>
 
       {/* Recent Entities — auto-populated from analyzed cases */}
