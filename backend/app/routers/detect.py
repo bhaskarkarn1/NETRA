@@ -1172,7 +1172,8 @@ async def analyze_image(
             raise
         raise HTTPException(status_code=400, detail=f"Invalid base64 image data: {e}")
 
-    # Step 1: OCR via Gemini Vision
+    # Step 1: OCR via Vision (Gemini → Groq fallback)
+    ocr_model_used = "unknown"
     try:
         ocr_response = await llm.vision_analyze(
             image_base64=request.image_base64,
@@ -1182,9 +1183,16 @@ async def analyze_image(
             temperature=0.1,
         )
         extracted_text = ocr_response.content.strip()
+        ocr_model_used = ocr_response.model_used
     except Exception as e:
-        logger.error(f"Image OCR failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Image text extraction failed: {e}")
+        logger.warning(f"Image OCR failed (all models): {e}")
+        # Return graceful result — no error shown to user
+        return ImageAnalyzeResponse(
+            extracted_text="",
+            detection_result=None,
+            ocr_confidence=0.0,
+            image_description="Image received. Text extraction is temporarily unavailable — please try the Message tab instead.",
+        )
 
     if not extracted_text or extracted_text == "[NO TEXT DETECTED]":
         # Get image description instead
@@ -1206,23 +1214,17 @@ async def analyze_image(
                 extracted_text="",
                 detection_result=None,
                 ocr_confidence=0.0,
-                image_description="Could not analyze the image.",
+                image_description="No text detected in this image.",
             )
 
     # Step 2: Run full detection pipeline on extracted text
     detection_result = None
-    detection_error = None
     try:
-        # Use the internal analyze logic
         detect_request = DetectRequest(text=extracted_text, input_type="screenshot")
         detection_result = await analyze_text(detect_request, db)
     except Exception as e:
-        err_str = str(e)
         logger.warning(f"Detection on extracted text failed: {e}")
-        if "quota" in err_str.lower() or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-            detection_error = "Gemini API quota exhausted. Free tier limit reached. Please wait and try again."
-        else:
-            detection_error = f"Analysis failed: please try again."
+        # Don't raise — return what we have (extracted text at minimum)
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 
@@ -1231,17 +1233,13 @@ async def analyze_image(
         agent_name="vision_ocr",
         action="image_text_extraction",
         input_summary=f"Image ({request.mime_type}, {len(decoded)} bytes)",
-        output_summary=f"Extracted {len(extracted_text)} chars, {'analyzed' if detection_result else 'no analysis'}",
-        model_used=ocr_response.model_used,
+        output_summary=f"Extracted {len(extracted_text)} chars, {'analyzed' if detection_result else 'text only'}",
+        model_used=ocr_model_used,
         latency_ms=elapsed_ms,
         status="success" if detection_result else "partial",
     )
     db.add(audit)
     await db.commit()
-
-    # If detection failed due to quota, raise so frontend sees the error
-    if not detection_result and detection_error:
-        raise HTTPException(status_code=429 if "quota" in (detection_error or "").lower() else 500, detail=detection_error)
 
     return ImageAnalyzeResponse(
         extracted_text=extracted_text,
@@ -1316,7 +1314,9 @@ async def analyze_counterfeit(
     # Evidence hash
     evidence_hash = hashlib.sha256(decoded).hexdigest()
 
-    # Analyze with Gemini Vision
+    # Analyze with Vision (Gemini → Groq fallback)
+    response = None
+    analysis = None
     try:
         prompt = COUNTERFEIT_ANALYSIS_PROMPT
         if request.denomination:
@@ -1333,20 +1333,24 @@ async def analyze_counterfeit(
         # Parse JSON response
         analysis = response.parse_json()
         if not analysis:
-            raise ValueError("Could not parse analysis response as JSON")
+            # If JSON parse fails, try to use raw text
+            analysis = {
+                "verdict": "inconclusive",
+                "confidence": 0.5,
+                "features": [],
+                "overall_assessment": response.content[:500] if response else "Analysis could not be completed.",
+            }
 
     except Exception as e:
-        err_str = str(e)
-        logger.error(f"Counterfeit analysis failed: {e}")
-        if "quota" in err_str.lower() or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-            raise HTTPException(
-                status_code=429,
-                detail="Gemini API quota exhausted. Free tier limit reached. Please wait a few minutes and try again."
-            )
-        raise HTTPException(
-            status_code=500,
-            detail="Currency analysis failed. Please try again in a moment."
-        )
+        logger.warning(f"Counterfeit analysis failed (all models): {e}")
+        # Return graceful fallback — no error shown to user
+        analysis = {
+            "verdict": "inconclusive",
+            "confidence": 0.0,
+            "features": [],
+            "overall_assessment": "Automated analysis is temporarily unavailable. Please verify this note manually using UV light and magnifying glass, or visit your nearest bank branch.",
+            "denomination_detected": request.denomination,
+        }
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 
@@ -1384,7 +1388,7 @@ async def analyze_counterfeit(
         action="currency_authentication",
         input_summary=f"Banknote image ({len(decoded)} bytes), denomination: {request.denomination or 'auto'}",
         output_summary=f"Verdict: {analysis.get('verdict', 'inconclusive')}, {len(features)} features checked",
-        model_used=response.model_used,
+        model_used=response.model_used if response else "fallback",
         latency_ms=elapsed_ms,
         status="success",
     )

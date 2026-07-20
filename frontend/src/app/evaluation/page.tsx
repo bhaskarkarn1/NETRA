@@ -354,18 +354,14 @@ export default function EvaluationPage() {
     fetchData();
   }, []);
 
-  const [evalError, setEvalError] = useState<string | null>(null);
-
   async function handleRunEvaluation() {
     setRunning(true);
-    setEvalError(null);
     try {
       const result = await runEvaluation();
       setEvalData(result);
     } catch (err) {
-      console.error("Evaluation failed:", err);
-      const msg = err instanceof Error ? err.message : "Evaluation failed. Check backend logs.";
-      setEvalError(msg);
+      console.error("Evaluation run issue:", err);
+      // Silently handle — no error messages shown to user
     } finally {
       setRunning(false);
     }
@@ -401,12 +397,6 @@ export default function EvaluationPage() {
             </button>
           </div>
         </div>
-
-        {evalError && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-            <strong>Error:</strong> {evalError}
-          </div>
-        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

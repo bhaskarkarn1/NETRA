@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_FAST_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_VISION_MODEL: str = "llama-3.2-11b-vision-preview"
 
     # AI Model routing
     PRIMARY_TIMEOUT_MS: int = 30000

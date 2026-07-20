@@ -5,6 +5,7 @@ Model routing strategy:
 1. Primary: Gemini 2.5 Flash (deep analysis, classification, generation)
 2. Fast fallback: Groq Llama 3.3 70B (if Gemini fails or times out)
 3. Ultra-fast: Groq Llama 3.1 8B (simple extraction, language detection)
+4. Vision: Gemini Vision → Groq Vision (llama-3.2-11b-vision-preview)
 
 Every call is logged to audit_logs with model used, latency, and fallback info.
 """
@@ -111,7 +112,6 @@ class LLMService:
             try:
                 start_time = time.monotonic()
 
-                # Timeout: Gemini gets 15s, Groq gets 8s
                 timeout_s = (
                     self.settings.PRIMARY_TIMEOUT_MS / 1000
                     if provider == "gemini"
@@ -215,7 +215,7 @@ class LLMService:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        """Call Google Gemini API with retry on 429 rate limit errors."""
+        """Call Google Gemini API. Fails fast on 429 so the chain falls to Groq."""
         config = genai_types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
@@ -225,34 +225,16 @@ class LLMService:
         if response_format == "json":
             config.response_mime_type = "application/json"
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = await self.gemini_client.aio.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=config,
-                )
+        response = await self.gemini_client.aio.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=config,
+        )
 
-                if not response.text:
-                    raise ValueError("Gemini returned empty response")
+        if not response.text:
+            raise ValueError("Gemini returned empty response")
 
-                return response.text
-            except Exception as e:
-                err_str = str(e)
-                is_rate_limit = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
-                if is_rate_limit and attempt < max_retries - 1:
-                    wait_time = (attempt + 1) * 5  # 5s, 10s
-                    logger.warning(f"Gemini 429 rate limit hit (attempt {attempt+1}/{max_retries}). Retrying in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                    continue
-                elif is_rate_limit:
-                    raise RuntimeError(
-                        "Gemini API quota exhausted. The free tier allows 20 requests/day for gemini-2.5-flash. "
-                        "Please wait a few minutes or upgrade your API plan."
-                    )
-                raise  # Non-rate-limit errors propagate immediately
-        raise RuntimeError("Gemini call failed after retries")
+        return response.text
 
     async def _call_groq(
         self,
@@ -286,6 +268,47 @@ class LLMService:
 
         return content
 
+    async def _call_groq_vision(
+        self,
+        image_base64: str,
+        prompt: str,
+        system_instruction: str | None,
+        mime_type: str,
+        temperature: float,
+        max_tokens: int,
+        model: str = "llama-3.2-11b-vision-preview",
+    ) -> str:
+        """Call Groq Vision API with base64 image input."""
+        messages = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+
+        messages.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{image_base64}",
+                    },
+                },
+            ],
+        })
+
+        response = await self.groq_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        content = response.choices[0].message.content
+        if not content:
+            raise ValueError("Groq Vision returned empty response")
+
+        return content
+
     async def vision_analyze(
         self,
         image_base64: str,
@@ -296,71 +319,92 @@ class LLMService:
         max_tokens: int = 4096,
     ) -> LLMResponse:
         """
-        Analyze an image using Gemini Vision (multimodal).
-        
-        Used for:
-        - WhatsApp/SMS screenshot OCR → text extraction
-        - Counterfeit currency feature analysis
-        - Document/evidence image analysis
+        Analyze an image using vision models with automatic fallback.
+
+        Chain: Gemini Vision → Groq Vision (llama-3.2-11b-vision-preview)
+        If Gemini is rate-limited, seamlessly falls to Groq.
         """
         import base64
-        
+
         start_time = time.monotonic()
-        
-        try:
-            # Decode base64 to bytes
-            image_bytes = base64.b64decode(image_base64)
-            
-            # Build multimodal content parts
-            parts = [
-                genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                genai_types.Part.from_text(text=prompt),
-            ]
-            
-            config = genai_types.GenerateContentConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-            )
-            if system_instruction:
-                config.system_instruction = system_instruction
-            
-            response = await self.gemini_client.aio.models.generate_content(
-                model=self.settings.GEMINI_MODEL,
-                contents=parts,
-                config=config,
-            )
-            
-            content = response.text
-            if not content:
-                raise ValueError("Gemini Vision returned empty response")
-            
-            elapsed_ms = int((time.monotonic() - start_time) * 1000)
-            
-            return LLMResponse(
-                content=content,
-                model_used=f"{self.settings.GEMINI_MODEL}-vision",
-                latency_ms=elapsed_ms,
-                was_fallback=False,
-            )
-            
-        except Exception as e:
-            elapsed_ms = int((time.monotonic() - start_time) * 1000)
-            err_str = str(e)
-            is_rate_limit = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
-            if is_rate_limit:
-                logger.error(f"Gemini Vision rate limited: {e}")
-                raise RuntimeError(
-                    "Gemini API quota exhausted. Free tier limit reached. "
-                    "Please wait a few minutes or upgrade your API plan."
+        last_error = None
+
+        # Vision fallback chain
+        vision_chain = []
+        if self.settings.GOOGLE_API_KEY:
+            vision_chain.append(("gemini", self.settings.GEMINI_MODEL))
+        if self.settings.GROQ_API_KEY:
+            vision_chain.append(("groq", self.settings.GROQ_VISION_MODEL))
+
+        for i, (provider, model) in enumerate(vision_chain):
+            try:
+                if provider == "gemini":
+                    image_bytes = base64.b64decode(image_base64)
+                    parts = [
+                        genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                        genai_types.Part.from_text(text=prompt),
+                    ]
+
+                    config = genai_types.GenerateContentConfig(
+                        temperature=temperature,
+                        max_output_tokens=max_tokens,
+                    )
+                    if system_instruction:
+                        config.system_instruction = system_instruction
+
+                    response = await asyncio.wait_for(
+                        self.gemini_client.aio.models.generate_content(
+                            model=model,
+                            contents=parts,
+                            config=config,
+                        ),
+                        timeout=self.settings.PRIMARY_TIMEOUT_MS / 1000,
+                    )
+
+                    content = response.text
+                    if not content:
+                        raise ValueError("Gemini Vision returned empty response")
+
+                elif provider == "groq":
+                    content = await asyncio.wait_for(
+                        self._call_groq_vision(
+                            image_base64=image_base64,
+                            prompt=prompt,
+                            system_instruction=system_instruction,
+                            mime_type=mime_type,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model=model,
+                        ),
+                        timeout=self.settings.FALLBACK_TIMEOUT_MS / 1000,
+                    )
+                else:
+                    continue
+
+                elapsed_ms = int((time.monotonic() - start_time) * 1000)
+                return LLMResponse(
+                    content=content,
+                    model_used=f"{model}-vision",
+                    latency_ms=elapsed_ms,
+                    was_fallback=i > 0,
+                    fallback_reason=str(last_error) if i > 0 else None,
                 )
-            logger.error(f"Gemini Vision analysis failed: {e}")
-            raise
+
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    f"Vision call failed for {provider}/{model}: {e}. "
+                    f"Trying next in chain ({i + 1}/{len(vision_chain)})."
+                )
+                continue
+
+        raise RuntimeError(f"All vision models failed. Last error: {last_error}")
 
     async def embed(self, text: str, model: str = "text-embedding-004") -> list[float]:
         """
         Generate a text embedding vector using Gemini's embedding API.
         Used for cross-case intelligence (cosine similarity search).
-        
+
         Returns a list of floats (768-dimensional vector).
         """
         try:
