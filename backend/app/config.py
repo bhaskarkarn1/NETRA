@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # AI Model routing
     PRIMARY_TIMEOUT_MS: int = 30000
-    FALLBACK_TIMEOUT_MS: int = 8000
+    FALLBACK_TIMEOUT_MS: int = 30000
     MAX_RETRIES: int = 2
 
     # Simulation
