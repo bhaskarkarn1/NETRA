@@ -1,1992 +1,2527 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NETRA — Technical Submission Document</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-/* ================================================================
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NETRA — Technical Submission Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    /* ================================================================
    NETRA SUBMISSION DOCUMENT — STYLESHEET
    Professional A4 technical document
    ================================================================ */
 
-/* --- Reset & Base --- */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-serif: 'Source Serif 4', 'Georgia', serif;
-  --font-mono: 'JetBrains Mono', 'Menlo', monospace;
-
-  --color-ink: #1a1a2e;
-  --color-ink-secondary: #404056;
-  --color-ink-tertiary: #6b6b80;
-  --color-ink-muted: #8e8e9e;
-  --color-border: #e2e2ea;
-  --color-border-light: #f0f0f5;
-  --color-bg: #ffffff;
-  --color-bg-subtle: #f8f8fb;
-  --color-bg-tinted: #f2f4f8;
-  --color-accent: #1e3a5f;
-  --color-accent-light: #2a5a8f;
-  --color-accent-subtle: #e8eef6;
-  --color-danger: #b91c1c;
-  --color-success: #166534;
-  --color-warn: #92400e;
-
-  --page-width: 210mm;
-  --page-min-height: 297mm;
-  --page-pad-x: 28mm;
-  --page-pad-y: 24mm;
-  --content-width: 154mm;
-
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
-  --shadow-elevated: 0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03);
-}
-
-html {
-  font-size: 10.5pt;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  font-family: var(--font-sans);
-  color: var(--color-ink);
-  background: #e8e8ee;
-  line-height: 1.7;
-  padding: 32px 0;
-}
-
-/* --- A4 Page Container --- */
-.page {
-  width: var(--page-width);
-  min-height: var(--page-min-height);
-  margin: 0 auto 24px auto;
-  padding: var(--page-pad-y) var(--page-pad-x);
-  background: var(--color-bg);
-  box-shadow: 0 2px 20px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03);
-  position: relative;
-  page-break-after: always;
-}
-
-.page::after {
-  content: '';
-  display: table;
-  clear: both;
-}
-
-/* Page number */
-.page-number {
-  position: absolute;
-  bottom: 14mm;
-  right: 28mm;
-  font-size: 8pt;
-  color: var(--color-ink-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.page-footer-line {
-  position: absolute;
-  bottom: 18mm;
-  left: 28mm;
-  right: 28mm;
-  height: 1px;
-  background: var(--color-border);
-}
-
-.page-footer-text {
-  position: absolute;
-  bottom: 14mm;
-  left: 28mm;
-  font-size: 7.5pt;
-  color: var(--color-ink-muted);
-  letter-spacing: 0.02em;
-}
-
-/* --- Cover Page --- */
-.cover {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: calc(var(--page-min-height) - 2 * var(--page-pad-y));
-}
-
-.cover-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
-  font-size: 8pt;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border-radius: var(--radius-sm);
-  margin-bottom: 28px;
-}
-
-.cover-title {
-  font-family: var(--font-serif);
-  font-size: 32pt;
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--color-ink);
-  margin-bottom: 8px;
-  letter-spacing: -0.02em;
-}
-
-.cover-acronym {
-  font-family: var(--font-sans);
-  font-size: 11pt;
-  font-weight: 500;
-  color: var(--color-ink-tertiary);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-bottom: 32px;
-}
-
-.cover-subtitle {
-  font-size: 13pt;
-  font-weight: 400;
-  color: var(--color-ink-secondary);
-  line-height: 1.6;
-  max-width: 420px;
-  margin-bottom: 48px;
-}
-
-.cover-line {
-  width: 56px;
-  height: 3px;
-  background: var(--color-accent);
-  border-radius: 2px;
-  margin-bottom: 32px;
-}
-
-.cover-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-size: 9.5pt;
-  color: var(--color-ink-secondary);
-}
-
-.cover-meta-row {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.cover-meta-label {
-  font-weight: 600;
-  color: var(--color-ink-tertiary);
-  min-width: 90px;
-  font-size: 8pt;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.cover-meta-value {
-  font-weight: 500;
-  color: var(--color-ink);
-}
-
-.cover-footer {
-  margin-top: auto;
-  padding-top: 32px;
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  width: 100%;
-}
-
-.cover-footer-left {
-  font-size: 8pt;
-  color: var(--color-ink-muted);
-  line-height: 1.5;
-}
-
-.cover-footer-right {
-  font-size: 8pt;
-  color: var(--color-ink-muted);
-  text-align: right;
-  line-height: 1.5;
-}
-
-/* --- Typography --- */
-h1, h2, h3, h4 {
-  font-family: var(--font-serif);
-  color: var(--color-ink);
-  letter-spacing: -0.01em;
-}
-
-.section-number {
-  display: inline-block;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 9pt;
-  color: var(--color-accent);
-  margin-right: 10px;
-  min-width: 24px;
-}
-
-h1.section-heading {
-  font-size: 20pt;
-  font-weight: 700;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid var(--color-ink);
-  line-height: 1.25;
-}
-
-h2.sub-heading {
-  font-size: 14pt;
-  font-weight: 600;
-  margin-top: 28px;
-  margin-bottom: 12px;
-  line-height: 1.3;
-  color: var(--color-ink);
-}
-
-h3.minor-heading {
-  font-family: var(--font-sans);
-  font-size: 10.5pt;
-  font-weight: 600;
-  margin-top: 20px;
-  margin-bottom: 8px;
-  color: var(--color-ink);
-  letter-spacing: 0;
-}
-
-p {
-  margin-bottom: 12px;
-  line-height: 1.72;
-  color: var(--color-ink-secondary);
-}
-
-p.lead {
-  font-size: 11pt;
-  line-height: 1.65;
-  color: var(--color-ink);
-}
-
-strong { font-weight: 600; color: var(--color-ink); }
-
-/* --- Table of Contents --- */
-.toc {
-  list-style: none;
-  padding: 0;
-}
-
-.toc-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--color-border-light);
-  font-size: 10pt;
-  color: var(--color-ink-secondary);
-  line-height: 1.4;
-}
-
-.toc-item:last-child { border-bottom: none; }
-
-.toc-num {
-  font-weight: 600;
-  color: var(--color-accent);
-  min-width: 28px;
-  font-size: 9pt;
-}
-
-.toc-title { flex: 1; }
-
-.toc-dots {
-  flex: 1;
-  border-bottom: 1px dotted var(--color-border);
-  min-width: 20px;
-  margin: 0 6px;
-  position: relative;
-  top: -3px;
-}
-
-.toc-page {
-  font-variant-numeric: tabular-nums;
-  font-size: 9pt;
-  color: var(--color-ink-muted);
-  min-width: 16px;
-  text-align: right;
-}
-
-.toc-sub {
-  padding-left: 28px;
-}
-
-.toc-sub .toc-num { font-size: 8.5pt; }
-
-/* --- Callout Boxes --- */
-.callout {
-  padding: 14px 18px;
-  border-radius: var(--radius-md);
-  margin: 16px 0;
-  font-size: 9.5pt;
-  line-height: 1.6;
-}
-
-.callout-note {
-  background: #f0f4ff;
-  border-left: 3px solid #3b6fcc;
-  color: #1e3a6e;
-}
-
-.callout-important {
-  background: #fef3ec;
-  border-left: 3px solid #c47a2a;
-  color: #6e3a0a;
-}
-
-.callout-stat {
-  background: var(--color-bg-tinted);
-  border-left: 3px solid var(--color-accent);
-  color: var(--color-ink);
-}
-
-.callout-label {
-  font-weight: 600;
-  font-size: 8pt;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 4px;
-  display: block;
-}
-
-/* --- Tables --- */
-.doc-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 9pt;
-  margin: 14px 0;
-}
-
-.doc-table th {
-  text-align: left;
-  padding: 9px 12px;
-  font-weight: 600;
-  font-size: 8pt;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-ink-tertiary);
-  background: var(--color-bg-subtle);
-  border-bottom: 2px solid var(--color-border);
-}
-
-.doc-table td {
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--color-border-light);
-  color: var(--color-ink-secondary);
-  vertical-align: top;
-  line-height: 1.5;
-}
-
-.doc-table tbody tr:last-child td { border-bottom: none; }
-
-.doc-table code {
-  font-family: var(--font-mono);
-  font-size: 8.5pt;
-  background: var(--color-bg-tinted);
-  padding: 1px 5px;
-  border-radius: 3px;
-  color: var(--color-accent);
-}
-
-/* --- Metric Cards --- */
-.metrics-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin: 16px 0;
-}
-
-.metric-card {
-  padding: 16px;
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  text-align: center;
-}
-
-.metric-value {
-  font-family: var(--font-sans);
-  font-size: 22pt;
-  font-weight: 700;
-  color: var(--color-accent);
-  line-height: 1.1;
-  margin-bottom: 4px;
-  letter-spacing: -0.02em;
-}
-
-.metric-label {
-  font-size: 7.5pt;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-ink-tertiary);
-}
-
-.metrics-row-3 { grid-template-columns: repeat(3, 1fr); }
-
-/* --- Architecture Diagram --- */
-.arch-diagram {
-  margin: 20px 0;
-  padding: 24px;
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.arch-layer {
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  margin-bottom: 8px;
-  position: relative;
-}
-
-.arch-layer-label {
-  font-size: 7pt;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-ink-muted);
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.arch-layer-label::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  background: var(--color-accent);
-  border-radius: 2px;
-}
-
-.arch-components {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.arch-box {
-  padding: 8px 14px;
-  background: var(--color-bg-tinted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 8pt;
-  font-weight: 500;
-  color: var(--color-ink);
-  line-height: 1.3;
-  flex: 1;
-  min-width: 100px;
-}
-
-.arch-box-title {
-  font-weight: 600;
-  display: block;
-  margin-bottom: 2px;
-  font-size: 8.5pt;
-}
-
-.arch-box-desc {
-  font-size: 7.5pt;
-  color: var(--color-ink-tertiary);
-  font-weight: 400;
-}
-
-.arch-connector {
-  display: flex;
-  justify-content: center;
-  padding: 4px 0;
-  color: var(--color-ink-muted);
-}
-
-.arch-connector svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* --- Kill Chain Diagram --- */
-.killchain {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-  margin: 16px 0;
-}
-
-.killchain-stage {
-  padding: 12px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  text-align: center;
-  position: relative;
-}
-
-.killchain-stage::after {
-  content: '→';
-  position: absolute;
-  right: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-ink-muted);
-  font-size: 11pt;
-  font-weight: 300;
-}
-
-.killchain-stage:last-child::after { content: ''; }
-
-.killchain-id {
-  font-size: 7pt;
-  font-weight: 700;
-  color: var(--color-accent);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-}
-
-.killchain-name {
-  font-size: 8.5pt;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin-bottom: 4px;
-  line-height: 1.2;
-}
-
-.killchain-desc {
-  font-size: 7pt;
-  color: var(--color-ink-tertiary);
-  line-height: 1.35;
-}
-
-/* --- Pipeline Flow --- */
-.pipeline {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  margin: 16px 0;
-}
-
-.pipeline-step {
-  flex: 1;
-  padding: 12px 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  text-align: center;
-  position: relative;
-}
-
-.pipeline-step:first-child {
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-}
-
-.pipeline-step:last-child {
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-}
-
-.pipeline-step + .pipeline-step {
-  border-left: none;
-}
-
-.pipeline-step-num {
-  font-size: 7pt;
-  font-weight: 700;
-  color: var(--color-accent);
-  letter-spacing: 0.08em;
-}
-
-.pipeline-step-name {
-  font-size: 8pt;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin-top: 3px;
-  line-height: 1.2;
-}
-
-.pipeline-step-desc {
-  font-size: 7pt;
-  color: var(--color-ink-tertiary);
-  margin-top: 2px;
-}
-
-/* --- Feature List --- */
-.feature-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 14px 0;
-}
-
-.feature-item {
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-}
-
-.feature-item-title {
-  font-size: 9.5pt;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.feature-item-title svg {
-  width: 14px;
-  height: 14px;
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.feature-item-desc {
-  font-size: 8.5pt;
-  color: var(--color-ink-tertiary);
-  line-height: 1.5;
-  margin: 0;
-}
-
-/* --- References --- */
-.ref-list {
-  list-style: none;
-  padding: 0;
-  margin: 10px 0;
-  counter-reset: ref-counter;
-}
-
-.ref-item {
-  counter-increment: ref-counter;
-  padding: 6px 0 6px 28px;
-  font-size: 8.5pt;
-  color: var(--color-ink-secondary);
-  line-height: 1.5;
-  position: relative;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.ref-item:last-child { border-bottom: none; }
-
-.ref-item::before {
-  content: '[' counter(ref-counter) ']';
-  position: absolute;
-  left: 0;
-  font-weight: 600;
-  color: var(--color-accent);
-  font-size: 8pt;
-}
-
-/* --- Comparison Matrix --- */
-.comparison-matrix td:first-child {
-  font-weight: 600;
-  color: var(--color-ink);
-  background: var(--color-bg-subtle);
-  min-width: 120px;
-}
-
-.check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  background: #e6f4ea;
-  border-radius: 50%;
-  color: var(--color-success);
-}
-
-.cross {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  background: #fce8e6;
-  border-radius: 50%;
-  color: var(--color-danger);
-  font-size: 10pt;
-}
-
-.partial {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  background: #fef7e0;
-  border-radius: 50%;
-  color: var(--color-warn);
-  font-size: 9pt;
-}
-
-/* --- DB Schema --- */
-.schema-table {
-  font-size: 8.5pt;
-}
-
-.schema-table th {
-  font-size: 7.5pt;
-}
-
-/* --- Utilities --- */
-.mb-0 { margin-bottom: 0; }
-.mb-4 { margin-bottom: 4px; }
-.mb-8 { margin-bottom: 8px; }
-.mb-16 { margin-bottom: 16px; }
-.mb-24 { margin-bottom: 24px; }
-.mt-8 { margin-top: 8px; }
-.mt-16 { margin-top: 16px; }
-.mt-24 { margin-top: 24px; }
-
-.text-sm { font-size: 9pt; }
-.text-xs { font-size: 8pt; }
-.text-xxs { font-size: 7.5pt; }
-.text-muted { color: var(--color-ink-muted); }
-.text-secondary { color: var(--color-ink-secondary); }
-.text-accent { color: var(--color-accent); }
-
-.inline-code {
-  font-family: var(--font-mono);
-  font-size: 8.5pt;
-  background: var(--color-bg-tinted);
-  padding: 1px 5px;
-  border-radius: 3px;
-  color: var(--color-accent);
-}
-
-.list-disc {
-  padding-left: 20px;
-  margin: 8px 0;
-}
-
-.list-disc li {
-  margin-bottom: 5px;
-  font-size: 9.5pt;
-  color: var(--color-ink-secondary);
-  line-height: 1.55;
-}
-
-.divider {
-  border: none;
-  border-top: 1px solid var(--color-border);
-  margin: 20px 0;
-}
-
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-/* --- Print styles --- */
-@media print {
-  body { background: white; padding: 0; }
-  .page {
-    box-shadow: none;
-    margin: 0;
-    page-break-after: always;
-  }
-}
-
-/* --- Responsive --- */
-@media (max-width: 800px) {
-  .page {
-    width: 100%;
-    min-height: auto;
-    padding: 20px;
-    margin-bottom: 12px;
-  }
-  .metrics-row { grid-template-columns: repeat(2, 1fr); }
-  .killchain { grid-template-columns: repeat(3, 1fr); }
-  .feature-grid { grid-template-columns: 1fr; }
-  .two-col { grid-template-columns: 1fr; }
-  .pipeline { flex-direction: column; }
-  .cover-title { font-size: 22pt; }
-}
-</style>
+    /* --- Reset & Base --- */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Source Serif 4', 'Georgia', serif;
+      --font-mono: 'JetBrains Mono', 'Menlo', monospace;
+
+      --color-ink: #1a1a2e;
+      --color-ink-secondary: #404056;
+      --color-ink-tertiary: #6b6b80;
+      --color-ink-muted: #8e8e9e;
+      --color-border: #e2e2ea;
+      --color-border-light: #f0f0f5;
+      --color-bg: #ffffff;
+      --color-bg-subtle: #f8f8fb;
+      --color-bg-tinted: #f2f4f8;
+      --color-accent: #1e3a5f;
+      --color-accent-light: #2a5a8f;
+      --color-accent-subtle: #e8eef6;
+      --color-danger: #b91c1c;
+      --color-success: #166534;
+      --color-warn: #92400e;
+
+      --page-width: 210mm;
+      --page-min-height: 297mm;
+      --page-pad-x: 28mm;
+      --page-pad-y: 24mm;
+      --content-width: 154mm;
+
+      --radius-sm: 3px;
+      --radius-md: 6px;
+      --radius-lg: 10px;
+
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+      --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+    }
+
+    html {
+      font-size: 10.5pt;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      color: var(--color-ink);
+      background: #e8e8ee;
+      line-height: 1.7;
+      padding: 32px 0;
+    }
+
+    /* --- A4 Page Container --- */
+    .page {
+      width: var(--page-width);
+      min-height: var(--page-min-height);
+      margin: 0 auto 24px auto;
+      padding: var(--page-pad-y) var(--page-pad-x);
+      background: var(--color-bg);
+      box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+      position: relative;
+      page-break-after: always;
+    }
+
+    .page::after {
+      content: '';
+      display: table;
+      clear: both;
+    }
+
+    /* Page number */
+    .page-number {
+      position: absolute;
+      bottom: 14mm;
+      right: 28mm;
+      font-size: 8pt;
+      color: var(--color-ink-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .page-footer-line {
+      position: absolute;
+      bottom: 18mm;
+      left: 28mm;
+      right: 28mm;
+      height: 1px;
+      background: var(--color-border);
+    }
+
+    .page-footer-text {
+      position: absolute;
+      bottom: 14mm;
+      left: 28mm;
+      font-size: 7.5pt;
+      color: var(--color-ink-muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* --- Cover Page --- */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: calc(var(--page-min-height) - 2 * var(--page-pad-y));
+    }
+
+    .cover-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--color-accent-subtle);
+      color: var(--color-accent);
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: var(--radius-sm);
+      margin-bottom: 28px;
+    }
+
+    .cover-title {
+      font-family: var(--font-serif);
+      font-size: 32pt;
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .cover-acronym {
+      font-family: var(--font-sans);
+      font-size: 11pt;
+      font-weight: 500;
+      color: var(--color-ink-tertiary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+
+    .cover-subtitle {
+      font-size: 13pt;
+      font-weight: 400;
+      color: var(--color-ink-secondary);
+      line-height: 1.6;
+      max-width: 420px;
+      margin-bottom: 48px;
+    }
+
+    .cover-line {
+      width: 56px;
+      height: 3px;
+      background: var(--color-accent);
+      border-radius: 2px;
+      margin-bottom: 32px;
+    }
+
+    .cover-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 9.5pt;
+      color: var(--color-ink-secondary);
+    }
+
+    .cover-meta-row {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .cover-meta-label {
+      font-weight: 600;
+      color: var(--color-ink-tertiary);
+      min-width: 90px;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .cover-meta-value {
+      font-weight: 500;
+      color: var(--color-ink);
+    }
+
+    .cover-footer {
+      margin-top: auto;
+      padding-top: 32px;
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+    }
+
+    .cover-footer-left {
+      font-size: 8pt;
+      color: var(--color-ink-muted);
+      line-height: 1.5;
+    }
+
+    .cover-footer-right {
+      font-size: 8pt;
+      color: var(--color-ink-muted);
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    /* --- Typography --- */
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: var(--font-serif);
+      color: var(--color-ink);
+      letter-spacing: -0.01em;
+    }
+
+    .section-number {
+      display: inline-block;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 9pt;
+      color: var(--color-accent);
+      margin-right: 10px;
+      min-width: 24px;
+    }
+
+    h1.section-heading {
+      font-size: 20pt;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--color-ink);
+      line-height: 1.25;
+    }
+
+    h2.sub-heading {
+      font-size: 14pt;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      line-height: 1.3;
+      color: var(--color-ink);
+    }
+
+    h3.minor-heading {
+      font-family: var(--font-sans);
+      font-size: 10.5pt;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 8px;
+      color: var(--color-ink);
+      letter-spacing: 0;
+    }
+
+    p {
+      margin-bottom: 12px;
+      line-height: 1.72;
+      color: var(--color-ink-secondary);
+    }
+
+    p.lead {
+      font-size: 11pt;
+      line-height: 1.65;
+      color: var(--color-ink);
+    }
+
+    strong {
+      font-weight: 600;
+      color: var(--color-ink);
+    }
+
+    /* --- Table of Contents --- */
+    .toc {
+      list-style: none;
+      padding: 0;
+    }
+
+    .toc-item {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--color-border-light);
+      font-size: 10pt;
+      color: var(--color-ink-secondary);
+      line-height: 1.4;
+    }
+
+    .toc-item:last-child {
+      border-bottom: none;
+    }
+
+    .toc-num {
+      font-weight: 600;
+      color: var(--color-accent);
+      min-width: 28px;
+      font-size: 9pt;
+    }
+
+    .toc-title {
+      flex: 1;
+    }
+
+    .toc-dots {
+      flex: 1;
+      border-bottom: 1px dotted var(--color-border);
+      min-width: 20px;
+      margin: 0 6px;
+      position: relative;
+      top: -3px;
+    }
+
+    .toc-page {
+      font-variant-numeric: tabular-nums;
+      font-size: 9pt;
+      color: var(--color-ink-muted);
+      min-width: 16px;
+      text-align: right;
+    }
+
+    .toc-sub {
+      padding-left: 28px;
+    }
+
+    .toc-sub .toc-num {
+      font-size: 8.5pt;
+    }
+
+    /* --- Callout Boxes --- */
+    .callout {
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      margin: 16px 0;
+      font-size: 9.5pt;
+      line-height: 1.6;
+    }
+
+    .callout-note {
+      background: #f0f4ff;
+      border-left: 3px solid #3b6fcc;
+      color: #1e3a6e;
+    }
+
+    .callout-important {
+      background: #fef3ec;
+      border-left: 3px solid #c47a2a;
+      color: #6e3a0a;
+    }
+
+    .callout-stat {
+      background: var(--color-bg-tinted);
+      border-left: 3px solid var(--color-accent);
+      color: var(--color-ink);
+    }
+
+    .callout-label {
+      font-weight: 600;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    /* --- Tables --- */
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      margin: 14px 0;
+    }
+
+    .doc-table th {
+      text-align: left;
+      padding: 9px 12px;
+      font-weight: 600;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-ink-tertiary);
+      background: var(--color-bg-subtle);
+      border-bottom: 2px solid var(--color-border);
+    }
+
+    .doc-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--color-border-light);
+      color: var(--color-ink-secondary);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+
+    .doc-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .doc-table code {
+      font-family: var(--font-mono);
+      font-size: 8.5pt;
+      background: var(--color-bg-tinted);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--color-accent);
+    }
+
+    /* --- Metric Cards --- */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .metric-card {
+      padding: 16px;
+      background: var(--color-bg-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      text-align: center;
+    }
+
+    .metric-value {
+      font-family: var(--font-sans);
+      font-size: 22pt;
+      font-weight: 700;
+      color: var(--color-accent);
+      line-height: 1.1;
+      margin-bottom: 4px;
+      letter-spacing: -0.02em;
+    }
+
+    .metric-label {
+      font-size: 7.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-ink-tertiary);
+    }
+
+    .metrics-row-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* --- Architecture Diagram --- */
+    .arch-diagram {
+      margin: 20px 0;
+      padding: 24px;
+      background: var(--color-bg-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+    }
+
+    .arch-layer {
+      padding: 14px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .arch-layer-label {
+      font-size: 7pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--color-ink-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .arch-layer-label::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--color-accent);
+      border-radius: 2px;
+    }
+
+    .arch-components {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .arch-box {
+      padding: 8px 14px;
+      background: var(--color-bg-tinted);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: 8pt;
+      font-weight: 500;
+      color: var(--color-ink);
+      line-height: 1.3;
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .arch-box-title {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 2px;
+      font-size: 8.5pt;
+    }
+
+    .arch-box-desc {
+      font-size: 7.5pt;
+      color: var(--color-ink-tertiary);
+      font-weight: 400;
+    }
+
+    .arch-connector {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+      color: var(--color-ink-muted);
+    }
+
+    .arch-connector svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* --- Kill Chain Diagram --- */
+    .killchain {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin: 16px 0;
+    }
+
+    .killchain-stage {
+      padding: 12px 8px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      text-align: center;
+      position: relative;
+    }
+
+    .killchain-stage::after {
+      content: '→';
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-ink-muted);
+      font-size: 11pt;
+      font-weight: 300;
+    }
+
+    .killchain-stage:last-child::after {
+      content: '';
+    }
+
+    .killchain-id {
+      font-size: 7pt;
+      font-weight: 700;
+      color: var(--color-accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .killchain-name {
+      font-size: 8.5pt;
+      font-weight: 600;
+      color: var(--color-ink);
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+
+    .killchain-desc {
+      font-size: 7pt;
+      color: var(--color-ink-tertiary);
+      line-height: 1.35;
+    }
+
+    /* --- Pipeline Flow --- */
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin: 16px 0;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      padding: 12px 10px;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg);
+      text-align: center;
+      position: relative;
+    }
+
+    .pipeline-step:first-child {
+      border-radius: var(--radius-md) 0 0 var(--radius-md);
+    }
+
+    .pipeline-step:last-child {
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    }
+
+    .pipeline-step+.pipeline-step {
+      border-left: none;
+    }
+
+    .pipeline-step-num {
+      font-size: 7pt;
+      font-weight: 700;
+      color: var(--color-accent);
+      letter-spacing: 0.08em;
+    }
+
+    .pipeline-step-name {
+      font-size: 8pt;
+      font-weight: 600;
+      color: var(--color-ink);
+      margin-top: 3px;
+      line-height: 1.2;
+    }
+
+    .pipeline-step-desc {
+      font-size: 7pt;
+      color: var(--color-ink-tertiary);
+      margin-top: 2px;
+    }
+
+    /* --- Feature List --- */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 14px 0;
+    }
+
+    .feature-item {
+      padding: 14px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+    }
+
+    .feature-item-title {
+      font-size: 9.5pt;
+      font-weight: 600;
+      color: var(--color-ink);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .feature-item-title svg {
+      width: 14px;
+      height: 14px;
+      color: var(--color-accent);
+      flex-shrink: 0;
+    }
+
+    .feature-item-desc {
+      font-size: 8.5pt;
+      color: var(--color-ink-tertiary);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    /* --- References --- */
+    .ref-list {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+      counter-reset: ref-counter;
+    }
+
+    .ref-item {
+      counter-increment: ref-counter;
+      padding: 6px 0 6px 28px;
+      font-size: 8.5pt;
+      color: var(--color-ink-secondary);
+      line-height: 1.5;
+      position: relative;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .ref-item:last-child {
+      border-bottom: none;
+    }
+
+    .ref-item::before {
+      content: '[' counter(ref-counter) ']';
+      position: absolute;
+      left: 0;
+      font-weight: 600;
+      color: var(--color-accent);
+      font-size: 8pt;
+    }
+
+    /* --- Comparison Matrix --- */
+    .comparison-matrix td:first-child {
+      font-weight: 600;
+      color: var(--color-ink);
+      background: var(--color-bg-subtle);
+      min-width: 120px;
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: #e6f4ea;
+      border-radius: 50%;
+      color: var(--color-success);
+    }
+
+    .cross {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: #fce8e6;
+      border-radius: 50%;
+      color: var(--color-danger);
+      font-size: 10pt;
+    }
+
+    .partial {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: #fef7e0;
+      border-radius: 50%;
+      color: var(--color-warn);
+      font-size: 9pt;
+    }
+
+    /* --- DB Schema --- */
+    .schema-table {
+      font-size: 8.5pt;
+    }
+
+    .schema-table th {
+      font-size: 7.5pt;
+    }
+
+    /* --- Utilities --- */
+    .mb-0 {
+      margin-bottom: 0;
+    }
+
+    .mb-4 {
+      margin-bottom: 4px;
+    }
+
+    .mb-8 {
+      margin-bottom: 8px;
+    }
+
+    .mb-16 {
+      margin-bottom: 16px;
+    }
+
+    .mb-24 {
+      margin-bottom: 24px;
+    }
+
+    .mt-8 {
+      margin-top: 8px;
+    }
+
+    .mt-16 {
+      margin-top: 16px;
+    }
+
+    .mt-24 {
+      margin-top: 24px;
+    }
+
+    .text-sm {
+      font-size: 9pt;
+    }
+
+    .text-xs {
+      font-size: 8pt;
+    }
+
+    .text-xxs {
+      font-size: 7.5pt;
+    }
+
+    .text-muted {
+      color: var(--color-ink-muted);
+    }
+
+    .text-secondary {
+      color: var(--color-ink-secondary);
+    }
+
+    .text-accent {
+      color: var(--color-accent);
+    }
+
+    .inline-code {
+      font-family: var(--font-mono);
+      font-size: 8.5pt;
+      background: var(--color-bg-tinted);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--color-accent);
+    }
+
+    .list-disc {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+
+    .list-disc li {
+      margin-bottom: 5px;
+      font-size: 9.5pt;
+      color: var(--color-ink-secondary);
+      line-height: 1.55;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--color-border);
+      margin: 20px 0;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* --- Print styles --- */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .page {
+        box-shadow: none;
+        margin: 0;
+        page-break-after: always;
+      }
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 800px) {
+      .page {
+        width: 100%;
+        min-height: auto;
+        padding: 20px;
+        margin-bottom: 12px;
+      }
+
+      .metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .killchain {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .pipeline {
+        flex-direction: column;
+      }
+
+      .cover-title {
+        font-size: 22pt;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 1 — COVER
      ================================================================ -->
-<div class="page" id="cover">
-  <div class="cover">
-    <div class="cover-badge">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Technical Submission — ET Gen AI Hackathon
-    </div>
+  <div class="page" id="cover">
+    <div class="cover">
+      <div class="cover-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        Technical Submission — ET Gen AI Hackathon
+      </div>
 
-    <h1 class="cover-title">NETRA</h1>
-    <p class="cover-acronym">National Electronic Threat Recognition &amp; Analysis</p>
+      <h1 class="cover-title">NETRA</h1>
+      <p class="cover-acronym">National Electronic Threat Recognition &amp; Analysis</p>
 
-    <div class="cover-line"></div>
+      <div class="cover-line"></div>
 
-    <p class="cover-subtitle">
-      A Multi-Modal AI Platform for Real-Time Digital Fraud Detection, Graph-Based Network Intelligence, and Citizen Inoculation Against Social Engineering Attacks in India.
-    </p>
+      <p class="cover-subtitle">
+        A Multi-Modal AI Platform for Real-Time Digital Fraud Detection, Graph-Based Network Intelligence, and Citizen
+        Inoculation Against Social Engineering Attacks in India.
+      </p>
 
-    <div class="cover-meta">
-      <div class="cover-meta-row">
-        <span class="cover-meta-label">Author</span>
-        <span class="cover-meta-value">Bhaskar Ranjan Karn</span>
+      <div class="cover-meta">
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Author</span>
+          <span class="cover-meta-value">Bhaskar Ranjan Karn</span>
+        </div>
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Submission</span>
+          <span class="cover-meta-value">ET GEN AI Hackathon 2026</span>
+        </div>
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Problem</span>
+          <span class="cover-meta-value">PS 6: AI for Digital Public Safety — Defeating Counterfeiting, Fraud &amp; Digital Arrest Scams</span>
+        </div>
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Version</span>
+          <span class="cover-meta-value">1.0.0 — Production Deployment</span>
+        </div>
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Date</span>
+          <span class="cover-meta-value">July 2026</span>
+        </div>
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Repository</span>
+          <span class="cover-meta-value">github.com/bhaskarkarn1/NETRA</span>
+        </div>
+        <div class="cover-meta-row">
+          <span class="cover-meta-label">Live System</span>
+          <span class="cover-meta-value">netra-dusky.vercel.app</span>
+        </div>
       </div>
-      <div class="cover-meta-row">
-        <span class="cover-meta-label">Submission</span>
-        <span class="cover-meta-value">ET GEN AI Hackathon 2025</span>
-      </div>
-      <div class="cover-meta-row">
-        <span class="cover-meta-label">Version</span>
-        <span class="cover-meta-value">1.0.0 — Production Deployment</span>
-      </div>
-      <div class="cover-meta-row">
-        <span class="cover-meta-label">Date</span>
-        <span class="cover-meta-value">July 2025</span>
-      </div>
-      <div class="cover-meta-row">
-        <span class="cover-meta-label">Repository</span>
-        <span class="cover-meta-value">github.com/bhaskarkarn1/NETRA</span>
-      </div>
-      <div class="cover-meta-row">
-        <span class="cover-meta-label">Live System</span>
-        <span class="cover-meta-value">netra-dusky.vercel.app</span>
-      </div>
-    </div>
 
-    <div class="cover-footer">
-      <div class="cover-footer-left">
-        Confidential Technical Submission<br>
-        For Evaluation Purposes Only
-      </div>
-      <div class="cover-footer-right">
-        Built with Google Gemini 2.5 Flash<br>
-        FastAPI · Next.js 15 · Neon PostgreSQL
+      <div class="cover-footer">
+        <div class="cover-footer-left">
+          Confidential Technical Submission<br>
+          For Evaluation Purposes Only
+        </div>
+        <div class="cover-footer-right">
+          Built with Google Gemini 2.5 Flash<br>
+          FastAPI · Next.js 15 · Neon PostgreSQL
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 2 — TABLE OF CONTENTS
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading">Table of Contents</h1>
+  <div class="page">
+    <h1 class="section-heading">Table of Contents</h1>
 
-  <ul class="toc">
-    <li class="toc-item">
-      <span class="toc-num">1</span>
-      <span class="toc-title">Executive Summary</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">3</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">2</span>
-      <span class="toc-title">Problem Statement</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">3</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">2.1</span>
-      <span class="toc-title">Scale of the Crisis</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">3</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">2.2</span>
-      <span class="toc-title">Limitations of Current Approaches</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">3</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">3</span>
-      <span class="toc-title">Proposed Solution — System Overview</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">4</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">4</span>
-      <span class="toc-title">Architecture &amp; Technology Stack</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">5</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">4.1</span>
-      <span class="toc-title">System Architecture</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">5</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">4.2</span>
-      <span class="toc-title">Technology Stack</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">5</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">4.3</span>
-      <span class="toc-title">Database Schema</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">6</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">5</span>
-      <span class="toc-title">AI Pipeline &amp; Methodology</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">6</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">5.1</span>
-      <span class="toc-title">Kill Chain Decomposition Framework</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">6</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">5.2</span>
-      <span class="toc-title">Entity Extraction Pipeline</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">7</span>
-    </li>
-    <li class="toc-item toc-sub">
-      <span class="toc-num">5.3</span>
-      <span class="toc-title">LLM Routing &amp; Fallback Strategy</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">7</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">6</span>
-      <span class="toc-title">Core Features</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">7</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">7</span>
-      <span class="toc-title">Innovation &amp; Research Contribution</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">8</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">8</span>
-      <span class="toc-title">Evaluation &amp; Performance</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">9</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">9</span>
-      <span class="toc-title">Competitive Analysis</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">9</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">10</span>
-      <span class="toc-title">Security, Scalability &amp; Responsible AI</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">10</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">11</span>
-      <span class="toc-title">Impact — Government, Social &amp; Business</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">10</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">12</span>
-      <span class="toc-title">Deployment &amp; Reproducibility</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">11</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">13</span>
-      <span class="toc-title">Future Scope</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">11</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num">14</span>
-      <span class="toc-title">Conclusion</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">12</span>
-    </li>
-    <li class="toc-item">
-      <span class="toc-num"></span>
-      <span class="toc-title">References</span>
-      <span class="toc-dots"></span>
-      <span class="toc-page">12</span>
-    </li>
-  </ul>
+    <ul class="toc">
+      <li class="toc-item">
+        <span class="toc-num">1</span>
+        <span class="toc-title">Executive Summary</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">3</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">2</span>
+        <span class="toc-title">Problem Statement</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">3</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">2.1</span>
+        <span class="toc-title">Scale of the Crisis</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">3</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">2.2</span>
+        <span class="toc-title">Limitations of Current Approaches</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">3</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">3</span>
+        <span class="toc-title">Proposed Solution — System Overview</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">4</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">4</span>
+        <span class="toc-title">Architecture &amp; Technology Stack</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">5</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">4.1</span>
+        <span class="toc-title">System Architecture</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">5</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">4.2</span>
+        <span class="toc-title">Technology Stack</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">5</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">4.3</span>
+        <span class="toc-title">Database Schema</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">6</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">5</span>
+        <span class="toc-title">AI Pipeline &amp; Methodology</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">6</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">5.1</span>
+        <span class="toc-title">Kill Chain Decomposition Framework</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">6</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">5.2</span>
+        <span class="toc-title">Entity Extraction Pipeline</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">7</span>
+      </li>
+      <li class="toc-item toc-sub">
+        <span class="toc-num">5.3</span>
+        <span class="toc-title">LLM Routing &amp; Fallback Strategy</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">7</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">6</span>
+        <span class="toc-title">Core Features</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">7</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">7</span>
+        <span class="toc-title">Innovation &amp; Research Contribution</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">8</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">8</span>
+        <span class="toc-title">Evaluation &amp; Performance</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">9</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">9</span>
+        <span class="toc-title">Competitive Analysis</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">9</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">10</span>
+        <span class="toc-title">Security, Scalability &amp; Responsible AI</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">10</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">11</span>
+        <span class="toc-title">Impact — Government, Social &amp; Business</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">10</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">12</span>
+        <span class="toc-title">Deployment &amp; Reproducibility</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">11</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">13</span>
+        <span class="toc-title">Future Scope</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">11</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num">14</span>
+        <span class="toc-title">Conclusion</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">12</span>
+      </li>
+      <li class="toc-item">
+        <span class="toc-num"></span>
+        <span class="toc-title">References</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">12</span>
+      </li>
+    </ul>
 
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">2</div>
-</div>
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">2</div>
+  </div>
 
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 3 — EXECUTIVE SUMMARY + PROBLEM STATEMENT
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">1</span> Executive Summary</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">1</span> Executive Summary</h1>
 
-  <p class="lead">
-    NETRA (National Electronic Threat Recognition &amp; Analysis) is a production-deployed, multi-modal AI platform that transforms India's approach to digital fraud from reactive complaint processing to proactive, intelligence-driven threat neutralisation.
-  </p>
-  <p>
-    The system operates across three functional domains: <strong>real-time scam detection</strong> with a novel 6-stage Kill Chain decomposition framework; <strong>automated fraud network intelligence</strong> through graph-based entity extraction and influence-based risk propagation; and <strong>citizen inoculation</strong> via adversarial AI-powered scam simulations grounded in psychological inoculation theory.
-  </p>
-  <p>
-    NETRA processes text messages, screenshots (via Gemini Vision OCR), voice input, and counterfeit currency images. It automatically extracts Indian-specific financial identifiers (UPI VPAs, IFSC codes, Aadhaar patterns, PAN numbers), populates a fraud network graph, performs cross-case syndicate detection, and generates I4C/NCRB-compliant alert documents with SHA-256 evidence hashing for forensic admissibility.
-  </p>
+    <p class="lead">
+      NETRA (National Electronic Threat Recognition &amp; Analysis) is a production-deployed, multi-modal AI platform
+      that transforms India's approach to digital fraud from reactive complaint processing to proactive,
+      intelligence-driven threat neutralisation.
+    </p>
+    <p>
+      The system operates across three functional domains: <strong>real-time scam detection</strong> with a novel
+      6-stage Kill Chain decomposition framework; <strong>automated fraud network intelligence</strong> through
+      graph-based entity extraction and influence-based risk propagation; and <strong>citizen inoculation</strong> via
+      adversarial AI-powered scam simulations grounded in psychological inoculation theory.
+    </p>
+    <p>
+      NETRA processes text messages, screenshots (via Gemini Vision OCR), voice input, and counterfeit currency images.
+      It automatically extracts Indian-specific financial identifiers (UPI VPAs, IFSC codes, Aadhaar patterns, PAN
+      numbers), populates a fraud network graph, performs cross-case syndicate detection, and generates
+      I4C/NCRB-compliant alert documents with SHA-256 evidence hashing for forensic admissibility.
+    </p>
 
-  <div class="metrics-row mt-16">
-    <div class="metric-card">
-      <div class="metric-value">40+</div>
-      <div class="metric-label">API Endpoints</div>
+    <div class="metrics-row mt-16">
+      <div class="metric-card">
+        <div class="metric-value">40+</div>
+        <div class="metric-label">API Endpoints</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">6</div>
+        <div class="metric-label">Kill Chain Stages</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">12</div>
+        <div class="metric-label">Database Models</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">&lt;3s</div>
+        <div class="metric-label">Detection Latency</div>
+      </div>
     </div>
-    <div class="metric-card">
-      <div class="metric-value">6</div>
-      <div class="metric-label">Kill Chain Stages</div>
+
+    <hr class="divider">
+
+    <h1 class="section-heading"><span class="section-number">2</span> Problem Statement</h1>
+
+    <div class="callout callout-important">
+      <span class="callout-label">PS 6 — Official Hackathon Problem Statement</span>
+      <strong>AI for Digital Public Safety: Defeating Counterfeiting, Fraud &amp; Digital Arrest Scams</strong><br>
+      Build an AI-powered platform that detects and defeats counterfeiting, financial fraud, and the rapidly growing
+      menace of "Digital Arrest" scams — where criminals impersonate law enforcement over video calls to extort victims.
+      The solution must combine multi-modal detection (text, images, voice), real-time threat analysis, citizen awareness
+      training, and investigative intelligence to protect India's digital ecosystem.
     </div>
-    <div class="metric-card">
-      <div class="metric-value">12</div>
-      <div class="metric-label">Database Models</div>
+
+    <h2 class="sub-heading"><span class="section-number">2.1</span> Scale of the Crisis</h2>
+
+    <p>
+      India faces a rapidly escalating digital fraud epidemic. The Ministry of Home Affairs' Indian Cyber Crime
+      Coordination Centre (I4C) reported a 113% increase in cybercrime complaints between 2022 and 2024, with financial
+      fraud constituting 77.4% of all reported cases. The emergence of "digital arrest" scams — where perpetrators
+      impersonate CBI, ED, or customs officers to coerce victims via video call — represents a sophisticated attack
+      vector that exploits institutional trust and authority compliance.
+    </p>
+
+    <div class="metrics-row metrics-row-3 mt-16">
+      <div class="metric-card">
+        <div class="metric-value">₹11,333 Cr</div>
+        <div class="metric-label">Lost to cyber fraud (2024)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">31 Lakh+</div>
+        <div class="metric-label">Complaints registered</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">400%</div>
+        <div class="metric-label">YoY increase in digital arrest scams</div>
+      </div>
     </div>
-    <div class="metric-card">
-      <div class="metric-value">&lt;3s</div>
-      <div class="metric-label">Detection Latency</div>
-    </div>
+
+    <h2 class="sub-heading"><span class="section-number">2.2</span> Limitations of Current Approaches</h2>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Limitation</th>
+          <th>Description</th>
+          <th>Consequence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Reactive processing</strong></td>
+          <td>Victims must file complaints after financial loss has occurred</td>
+          <td>Zero prevention capability; recovery rate below 5%</td>
+        </tr>
+        <tr>
+          <td><strong>Single-modality input</strong></td>
+          <td>Existing tools process text only; no support for screenshots or voice</td>
+          <td>Excludes WhatsApp/SMS screenshot evidence</td>
+        </tr>
+        <tr>
+          <td><strong>No network analysis</strong></td>
+          <td>Cases treated in isolation; no cross-case entity correlation</td>
+          <td>Organised syndicates operate undetected</td>
+        </tr>
+        <tr>
+          <td><strong>No citizen training</strong></td>
+          <td>Public awareness limited to static pamphlets and advisories</td>
+          <td>Citizens remain psychologically unprepared</td>
+        </tr>
+        <tr>
+          <td><strong>Binary classification</strong></td>
+          <td>Systems output "scam" or "not scam" without forensic decomposition</td>
+          <td>No actionable intelligence for law enforcement</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">3</div>
   </div>
 
-  <hr class="divider">
-
-  <h1 class="section-heading"><span class="section-number">2</span> Problem Statement</h1>
-
-  <h2 class="sub-heading"><span class="section-number">2.1</span> Scale of the Crisis</h2>
-
-  <p>
-    India faces a rapidly escalating digital fraud epidemic. The Ministry of Home Affairs' Indian Cyber Crime Coordination Centre (I4C) reported a 113% increase in cybercrime complaints between 2022 and 2024, with financial fraud constituting 77.4% of all reported cases. The emergence of "digital arrest" scams — where perpetrators impersonate CBI, ED, or customs officers to coerce victims via video call — represents a sophisticated attack vector that exploits institutional trust and authority compliance.
-  </p>
-
-  <div class="metrics-row metrics-row-3 mt-16">
-    <div class="metric-card">
-      <div class="metric-value">₹11,333 Cr</div>
-      <div class="metric-label">Lost to cyber fraud (2024)</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value">31 Lakh+</div>
-      <div class="metric-label">Complaints registered</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value">400%</div>
-      <div class="metric-label">YoY increase in digital arrest scams</div>
-    </div>
-  </div>
-
-  <h2 class="sub-heading"><span class="section-number">2.2</span> Limitations of Current Approaches</h2>
-
-  <table class="doc-table">
-    <thead>
-      <tr>
-        <th>Limitation</th>
-        <th>Description</th>
-        <th>Consequence</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Reactive processing</strong></td>
-        <td>Victims must file complaints after financial loss has occurred</td>
-        <td>Zero prevention capability; recovery rate below 5%</td>
-      </tr>
-      <tr>
-        <td><strong>Single-modality input</strong></td>
-        <td>Existing tools process text only; no support for screenshots or voice</td>
-        <td>Excludes WhatsApp/SMS screenshot evidence</td>
-      </tr>
-      <tr>
-        <td><strong>No network analysis</strong></td>
-        <td>Cases treated in isolation; no cross-case entity correlation</td>
-        <td>Organised syndicates operate undetected</td>
-      </tr>
-      <tr>
-        <td><strong>No citizen training</strong></td>
-        <td>Public awareness limited to static pamphlets and advisories</td>
-        <td>Citizens remain psychologically unprepared</td>
-      </tr>
-      <tr>
-        <td><strong>Binary classification</strong></td>
-        <td>Systems output "scam" or "not scam" without forensic decomposition</td>
-        <td>No actionable intelligence for law enforcement</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">3</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 4 — PROPOSED SOLUTION
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">3</span> Proposed Solution — System Overview</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">3</span> Proposed Solution — System Overview</h1>
 
-  <p class="lead">
-    NETRA addresses the identified gaps through four integrated subsystems, each grounded in established research and implemented as a production-grade service.
-  </p>
+    <p class="lead">
+      NETRA addresses the identified gaps through four integrated subsystems, each grounded in established research and
+      implemented as a production-grade service.
+    </p>
 
-  <div class="feature-grid mt-16">
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        Detect — Multi-Modal Scam Analysis
+    <div class="feature-grid mt-16">
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          Detect — Multi-Modal Scam Analysis
+        </div>
+        <p class="feature-item-desc">
+          Accepts text, screenshots (Gemini Vision OCR), voice input (Web Speech API), and counterfeit currency images.
+          Performs Kill Chain decomposition, psychological tactic detection, legal section mapping (IPC, IT Act, BNS
+          2023), and victim vulnerability scoring. Generates SHA-256 evidence hashes for chain-of-custody.
+        </p>
       </div>
-      <p class="feature-item-desc">
-        Accepts text, screenshots (Gemini Vision OCR), voice input (Web Speech API), and counterfeit currency images. Performs Kill Chain decomposition, psychological tactic detection, legal section mapping (IPC, IT Act, BNS 2023), and victim vulnerability scoring. Generates SHA-256 evidence hashes for chain-of-custody.
-      </p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-        Investigate — Fraud Network Intelligence
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+          Investigate — Fraud Network Intelligence
+        </div>
+        <p class="feature-item-desc">
+          Dual-stage entity extraction (regex + LLM NER) automatically populates a fraud network graph. Influence-based
+          risk propagation (Independent Cascade model) surfaces connected criminal infrastructure. BFS community
+          detection identifies syndicates. Causal intervention simulator models enforcement actions.
+        </p>
       </div>
-      <p class="feature-item-desc">
-        Dual-stage entity extraction (regex + LLM NER) automatically populates a fraud network graph. Influence-based risk propagation (Independent Cascade model) surfaces connected criminal infrastructure. BFS community detection identifies syndicates. Causal intervention simulator models enforcement actions.
-      </p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Simulate — Adversarial Scam Training
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          Simulate — Adversarial Scam Training
+        </div>
+        <p class="feature-item-desc">
+          AI-powered scam role-play across 8 scenario types (Digital Arrest, KYC Fraud, Investment Scam, etc.). Guardian
+          agent monitors user susceptibility in real-time and triggers protective interventions. Post-simulation debrief
+          provides psychological resilience analysis grounded in inoculation theory.
+        </p>
       </div>
-      <p class="feature-item-desc">
-        AI-powered scam role-play across 8 scenario types (Digital Arrest, KYC Fraud, Investment Scam, etc.). Guardian agent monitors user susceptibility in real-time and triggers protective interventions. Post-simulation debrief provides psychological resilience analysis grounded in inoculation theory.
-      </p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Command Center — Operational Dashboard
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
+          Command Center — Operational Dashboard
+        </div>
+        <p class="feature-item-desc">
+          Real-time D3.js visualisations: scam type distribution (donut chart), entity type breakdown (bar chart), risk
+          entity table, live threat feed, and geospatial crime map (MapLibre GL JS with NCRB hotspot overlay). Analytics
+          API provides chart-ready data for programmatic integration.
+        </p>
       </div>
-      <p class="feature-item-desc">
-        Real-time D3.js visualisations: scam type distribution (donut chart), entity type breakdown (bar chart), risk entity table, live threat feed, and geospatial crime map (MapLibre GL JS with NCRB hotspot overlay). Analytics API provides chart-ready data for programmatic integration.
-      </p>
     </div>
+
+    <h2 class="sub-heading">End-to-End Detection Workflow</h2>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">STEP 1</div>
+        <div class="pipeline-step-name">Input Ingestion</div>
+        <div class="pipeline-step-desc">Text / Screenshot / Voice / Image</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">STEP 2</div>
+        <div class="pipeline-step-name">LLM Analysis</div>
+        <div class="pipeline-step-desc">Gemini 2.5 Flash + Groq Fallback</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">STEP 3</div>
+        <div class="pipeline-step-name">Kill Chain</div>
+        <div class="pipeline-step-desc">6-Stage Decomposition</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">STEP 4</div>
+        <div class="pipeline-step-name">Entity Extraction</div>
+        <div class="pipeline-step-desc">Regex + LLM NER</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">STEP 5</div>
+        <div class="pipeline-step-name">Graph Population</div>
+        <div class="pipeline-step-desc">Auto-Link + Risk Score</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">STEP 6</div>
+        <div class="pipeline-step-name">Intelligence Output</div>
+        <div class="pipeline-step-desc">Alert + Dossier + Feed</div>
+      </div>
+    </div>
+
+    <div class="callout callout-note mt-24">
+      <span class="callout-label">Design Principle</span>
+      NETRA treats digital fraud as a <strong>cyber-threat intelligence problem</strong>, not a classification task.
+      Every input generates structured forensic output — kill chain mapping, entity graph, legal sections, vulnerability
+      assessment, and evidence-grade documentation — rather than a binary scam/not-scam label.
+    </div>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">4</div>
   </div>
 
-  <h2 class="sub-heading">End-to-End Detection Workflow</h2>
-
-  <div class="pipeline">
-    <div class="pipeline-step">
-      <div class="pipeline-step-num">STEP 1</div>
-      <div class="pipeline-step-name">Input Ingestion</div>
-      <div class="pipeline-step-desc">Text / Screenshot / Voice / Image</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-step-num">STEP 2</div>
-      <div class="pipeline-step-name">LLM Analysis</div>
-      <div class="pipeline-step-desc">Gemini 2.5 Flash + Groq Fallback</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-step-num">STEP 3</div>
-      <div class="pipeline-step-name">Kill Chain</div>
-      <div class="pipeline-step-desc">6-Stage Decomposition</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-step-num">STEP 4</div>
-      <div class="pipeline-step-name">Entity Extraction</div>
-      <div class="pipeline-step-desc">Regex + LLM NER</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-step-num">STEP 5</div>
-      <div class="pipeline-step-name">Graph Population</div>
-      <div class="pipeline-step-desc">Auto-Link + Risk Score</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-step-num">STEP 6</div>
-      <div class="pipeline-step-name">Intelligence Output</div>
-      <div class="pipeline-step-desc">Alert + Dossier + Feed</div>
-    </div>
-  </div>
-
-  <div class="callout callout-note mt-24">
-    <span class="callout-label">Design Principle</span>
-    NETRA treats digital fraud as a <strong>cyber-threat intelligence problem</strong>, not a classification task. Every input generates structured forensic output — kill chain mapping, entity graph, legal sections, vulnerability assessment, and evidence-grade documentation — rather than a binary scam/not-scam label.
-  </div>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">4</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 5 — ARCHITECTURE & TECH STACK
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">4</span> Architecture &amp; Technology Stack</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">4</span> Architecture &amp; Technology Stack</h1>
 
-  <h2 class="sub-heading"><span class="section-number">4.1</span> System Architecture</h2>
+    <h2 class="sub-heading"><span class="section-number">4.1</span> System Architecture</h2>
 
-  <div class="arch-diagram">
-    <div class="arch-layer">
-      <div class="arch-layer-label">Presentation Layer — Frontend</div>
-      <div class="arch-components">
-        <div class="arch-box">
-          <span class="arch-box-title">Dashboard</span>
-          <span class="arch-box-desc">D3.js charts, metrics, threat feed, geospatial map</span>
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <div class="arch-layer-label">Presentation Layer — Frontend</div>
+        <div class="arch-components">
+          <div class="arch-box">
+            <span class="arch-box-title">Dashboard</span>
+            <span class="arch-box-desc">D3.js charts, metrics, threat feed, geospatial map</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Detect</span>
+            <span class="arch-box-desc">Multi-modal input, kill chain, legal mapping</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Investigate</span>
+            <span class="arch-box-desc">D3 force graph, search, intelligence panel</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Simulate</span>
+            <span class="arch-box-desc">Chat UI, scenario select, debrief</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Evaluate</span>
+            <span class="arch-box-desc">Benchmark runner, F1/precision/recall</span>
+          </div>
         </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Detect</span>
-          <span class="arch-box-desc">Multi-modal input, kill chain, legal mapping</span>
+      </div>
+
+      <div class="arch-connector">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M19 12l-7 7-7-7" />
+        </svg>
+      </div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">API Layer — 40+ REST Endpoints</div>
+        <div class="arch-components">
+          <div class="arch-box">
+            <span class="arch-box-title">detect.py</span>
+            <span class="arch-box-desc">Text, image OCR, counterfeit, alerts, dossier</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">graph.py</span>
+            <span class="arch-box-desc">Search, network, propagation, communities</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">simulate.py</span>
+            <span class="arch-box-desc">Start, respond, debrief, scenarios</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">dashboard.py</span>
+            <span class="arch-box-desc">Metrics, analytics, feed, geospatial</span>
+          </div>
         </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Investigate</span>
-          <span class="arch-box-desc">D3 force graph, search, intelligence panel</span>
+      </div>
+
+      <div class="arch-connector">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M19 12l-7 7-7-7" />
+        </svg>
+      </div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">Service Layer — Business Logic</div>
+        <div class="arch-components">
+          <div class="arch-box">
+            <span class="arch-box-title">LLM Service</span>
+            <span class="arch-box-desc">Gemini → Groq 70B → Groq 8B fallback chain</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Entity Extraction</span>
+            <span class="arch-box-desc">Dual-stage regex + LLM NER</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Graph Population</span>
+            <span class="arch-box-desc">Auto-link, dedup, risk scoring</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-box-title">Detection Agent</span>
+            <span class="arch-box-desc">Prompt engineering + JSON parsing</span>
+          </div>
         </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Simulate</span>
-          <span class="arch-box-desc">Chat UI, scenario select, debrief</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Evaluate</span>
-          <span class="arch-box-desc">Benchmark runner, F1/precision/recall</span>
+      </div>
+
+      <div class="arch-connector">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M19 12l-7 7-7-7" />
+        </svg>
+      </div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">Data Layer — Neon PostgreSQL (Cloud)</div>
+        <div class="arch-components">
+          <div class="arch-box"><span class="arch-box-title">Cases</span><span class="arch-box-desc">Detection results +
+              kill chain</span></div>
+          <div class="arch-box"><span class="arch-box-title">Graph Nodes/Edges</span><span class="arch-box-desc">Fraud
+              network entities</span></div>
+          <div class="arch-box"><span class="arch-box-title">Simulations</span><span class="arch-box-desc">Sessions +
+              turns</span></div>
+          <div class="arch-box"><span class="arch-box-title">Audit Logs</span><span class="arch-box-desc">Full agent
+              traceability</span></div>
         </div>
       </div>
     </div>
 
-    <div class="arch-connector">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-    </div>
+    <h2 class="sub-heading"><span class="section-number">4.2</span> Technology Stack</h2>
 
-    <div class="arch-layer">
-      <div class="arch-layer-label">API Layer — 40+ REST Endpoints</div>
-      <div class="arch-components">
-        <div class="arch-box">
-          <span class="arch-box-title">detect.py</span>
-          <span class="arch-box-desc">Text, image OCR, counterfeit, alerts, dossier</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">graph.py</span>
-          <span class="arch-box-desc">Search, network, propagation, communities</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">simulate.py</span>
-          <span class="arch-box-desc">Start, respond, debrief, scenarios</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">dashboard.py</span>
-          <span class="arch-box-desc">Metrics, analytics, feed, geospatial</span>
-        </div>
-      </div>
-    </div>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Technology</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Frontend</strong></td>
+          <td>Next.js 15 (Turbopack)</td>
+          <td>React server components, optimised dev builds</td>
+        </tr>
+        <tr>
+          <td><strong>Visualisation</strong></td>
+          <td>D3.js v7</td>
+          <td>Donut, bar, force-directed graph, risk tables</td>
+        </tr>
+        <tr>
+          <td><strong>Mapping</strong></td>
+          <td>MapLibre GL JS</td>
+          <td>Geospatial crime heatmap with NCRB overlay</td>
+        </tr>
+        <tr>
+          <td><strong>Animation</strong></td>
+          <td>Framer Motion</td>
+          <td>Page transitions, micro-interactions</td>
+        </tr>
+        <tr>
+          <td><strong>Backend</strong></td>
+          <td>FastAPI 0.115 (Python 3.11)</td>
+          <td>Async REST API with auto-generated OpenAPI docs</td>
+        </tr>
+        <tr>
+          <td><strong>AI — Primary</strong></td>
+          <td>Google Gemini 2.5 Flash</td>
+          <td>Text analysis, vision OCR, structured JSON output</td>
+        </tr>
+        <tr>
+          <td><strong>AI — Fallback</strong></td>
+          <td>Groq (Llama 3.3 70B / 8B)</td>
+          <td>Automatic failover when Gemini is rate-limited</td>
+        </tr>
+        <tr>
+          <td><strong>Database</strong></td>
+          <td>Neon PostgreSQL + SQLAlchemy Async</td>
+          <td>Cloud-hosted, connection pooling, auto-migration</td>
+        </tr>
+        <tr>
+          <td><strong>Voice</strong></td>
+          <td>Web Speech API (en-IN)</td>
+          <td>Browser-native Hindi/English dictation</td>
+        </tr>
+        <tr>
+          <td><strong>Evidence</strong></td>
+          <td>SHA-256 hashing</td>
+          <td>Cryptographic chain-of-custody</td>
+        </tr>
+        <tr>
+          <td><strong>Hosting</strong></td>
+          <td>Railway (Backend) + Vercel (Frontend)</td>
+          <td>Auto-deploy from GitHub, SSL, CDN</td>
+        </tr>
+      </tbody>
+    </table>
 
-    <div class="arch-connector">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-    </div>
-
-    <div class="arch-layer">
-      <div class="arch-layer-label">Service Layer — Business Logic</div>
-      <div class="arch-components">
-        <div class="arch-box">
-          <span class="arch-box-title">LLM Service</span>
-          <span class="arch-box-desc">Gemini → Groq 70B → Groq 8B fallback chain</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Entity Extraction</span>
-          <span class="arch-box-desc">Dual-stage regex + LLM NER</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Graph Population</span>
-          <span class="arch-box-desc">Auto-link, dedup, risk scoring</span>
-        </div>
-        <div class="arch-box">
-          <span class="arch-box-title">Detection Agent</span>
-          <span class="arch-box-desc">Prompt engineering + JSON parsing</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="arch-connector">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-    </div>
-
-    <div class="arch-layer">
-      <div class="arch-layer-label">Data Layer — Neon PostgreSQL (Cloud)</div>
-      <div class="arch-components">
-        <div class="arch-box"><span class="arch-box-title">Cases</span><span class="arch-box-desc">Detection results + kill chain</span></div>
-        <div class="arch-box"><span class="arch-box-title">Graph Nodes/Edges</span><span class="arch-box-desc">Fraud network entities</span></div>
-        <div class="arch-box"><span class="arch-box-title">Simulations</span><span class="arch-box-desc">Sessions + turns</span></div>
-        <div class="arch-box"><span class="arch-box-title">Audit Logs</span><span class="arch-box-desc">Full agent traceability</span></div>
-      </div>
-    </div>
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">5</div>
   </div>
 
-  <h2 class="sub-heading"><span class="section-number">4.2</span> Technology Stack</h2>
-
-  <table class="doc-table">
-    <thead>
-      <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Frontend</strong></td><td>Next.js 15 (Turbopack)</td><td>React server components, optimised dev builds</td></tr>
-      <tr><td><strong>Visualisation</strong></td><td>D3.js v7</td><td>Donut, bar, force-directed graph, risk tables</td></tr>
-      <tr><td><strong>Mapping</strong></td><td>MapLibre GL JS</td><td>Geospatial crime heatmap with NCRB overlay</td></tr>
-      <tr><td><strong>Animation</strong></td><td>Framer Motion</td><td>Page transitions, micro-interactions</td></tr>
-      <tr><td><strong>Backend</strong></td><td>FastAPI 0.115 (Python 3.11)</td><td>Async REST API with auto-generated OpenAPI docs</td></tr>
-      <tr><td><strong>AI — Primary</strong></td><td>Google Gemini 2.5 Flash</td><td>Text analysis, vision OCR, structured JSON output</td></tr>
-      <tr><td><strong>AI — Fallback</strong></td><td>Groq (Llama 3.3 70B / 8B)</td><td>Automatic failover when Gemini is rate-limited</td></tr>
-      <tr><td><strong>Database</strong></td><td>Neon PostgreSQL + SQLAlchemy Async</td><td>Cloud-hosted, connection pooling, auto-migration</td></tr>
-      <tr><td><strong>Voice</strong></td><td>Web Speech API (en-IN)</td><td>Browser-native Hindi/English dictation</td></tr>
-      <tr><td><strong>Evidence</strong></td><td>SHA-256 hashing</td><td>Cryptographic chain-of-custody</td></tr>
-      <tr><td><strong>Hosting</strong></td><td>Railway (Backend) + Vercel (Frontend)</td><td>Auto-deploy from GitHub, SSL, CDN</td></tr>
-    </tbody>
-  </table>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">5</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 6 — DATABASE + AI PIPELINE
      ================================================================ -->
-<div class="page">
-  <h2 class="sub-heading"><span class="section-number">4.3</span> Database Schema — 12 Models</h2>
+  <div class="page">
+    <h2 class="sub-heading"><span class="section-number">4.3</span> Database Schema — 12 Models</h2>
 
-  <table class="doc-table schema-table">
-    <thead>
-      <tr><th>Model</th><th>Table</th><th>Purpose</th><th>Key Fields</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Case</strong></td><td><code>cases</code></td><td>Every scam analysis result</td><td>scam_type, confidence, kill_chain, legal_sections, embedding, evidence_hash</td></tr>
-      <tr><td><strong>ScamPattern</strong></td><td><code>scam_patterns</code></td><td>Reference data for 8 known scam types</td><td>keywords, tactics, typical_flow, ipc_sections, avg_loss_inr</td></tr>
-      <tr><td><strong>LegalMapping</strong></td><td><code>legal_mappings</code></td><td>IPC, IT Act, BNS sections reference</td><td>code, section, title, punishment, is_cognizable</td></tr>
-      <tr><td><strong>GraphNode</strong></td><td><code>graph_nodes</code></td><td>Fraud network entities</td><td>node_type, label, risk_score, appearance_count</td></tr>
-      <tr><td><strong>GraphEdge</strong></td><td><code>graph_edges</code></td><td>Entity relationships</td><td>source_id, target_id, edge_type, weight</td></tr>
-      <tr><td><strong>Simulation</strong></td><td><code>simulations</code></td><td>Training session records</td><td>scenario_type, status, intervention_triggered, tactics_used</td></tr>
-      <tr><td><strong>SimulationTurn</strong></td><td><code>simulation_turns</code></td><td>Individual messages</td><td>role (scammer/user/system), content, analysis</td></tr>
-      <tr><td><strong>AuditLog</strong></td><td><code>audit_logs</code></td><td>Complete agent traceability</td><td>agent_name, action, model_used, latency_ms, status</td></tr>
-      <tr><td><strong>DisruptionAction</strong></td><td><code>disruption_actions</code></td><td>Bank freeze / telecom block payloads</td><td>action_type, target_entity, target_institution, payload</td></tr>
-      <tr><td><strong>EvaluationRun</strong></td><td><code>evaluation_runs</code></td><td>Benchmark results</td><td>precision, recall, f1_score, confusion_matrix, baseline_comparison</td></tr>
-      <tr><td><strong>DiscoveredPattern</strong></td><td><code>discovered_patterns</code></td><td>Auto-discovered scam clusters</td><td>pattern_name, cluster_size, avg_similarity, keywords</td></tr>
-    </tbody>
-  </table>
+    <table class="doc-table schema-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Table</th>
+          <th>Purpose</th>
+          <th>Key Fields</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Case</strong></td>
+          <td><code>cases</code></td>
+          <td>Every scam analysis result</td>
+          <td>scam_type, confidence, kill_chain, legal_sections, embedding, evidence_hash</td>
+        </tr>
+        <tr>
+          <td><strong>ScamPattern</strong></td>
+          <td><code>scam_patterns</code></td>
+          <td>Reference data for 8 known scam types</td>
+          <td>keywords, tactics, typical_flow, ipc_sections, avg_loss_inr</td>
+        </tr>
+        <tr>
+          <td><strong>LegalMapping</strong></td>
+          <td><code>legal_mappings</code></td>
+          <td>IPC, IT Act, BNS sections reference</td>
+          <td>code, section, title, punishment, is_cognizable</td>
+        </tr>
+        <tr>
+          <td><strong>GraphNode</strong></td>
+          <td><code>graph_nodes</code></td>
+          <td>Fraud network entities</td>
+          <td>node_type, label, risk_score, appearance_count</td>
+        </tr>
+        <tr>
+          <td><strong>GraphEdge</strong></td>
+          <td><code>graph_edges</code></td>
+          <td>Entity relationships</td>
+          <td>source_id, target_id, edge_type, weight</td>
+        </tr>
+        <tr>
+          <td><strong>Simulation</strong></td>
+          <td><code>simulations</code></td>
+          <td>Training session records</td>
+          <td>scenario_type, status, intervention_triggered, tactics_used</td>
+        </tr>
+        <tr>
+          <td><strong>SimulationTurn</strong></td>
+          <td><code>simulation_turns</code></td>
+          <td>Individual messages</td>
+          <td>role (scammer/user/system), content, analysis</td>
+        </tr>
+        <tr>
+          <td><strong>AuditLog</strong></td>
+          <td><code>audit_logs</code></td>
+          <td>Complete agent traceability</td>
+          <td>agent_name, action, model_used, latency_ms, status</td>
+        </tr>
+        <tr>
+          <td><strong>DisruptionAction</strong></td>
+          <td><code>disruption_actions</code></td>
+          <td>Bank freeze / telecom block payloads</td>
+          <td>action_type, target_entity, target_institution, payload</td>
+        </tr>
+        <tr>
+          <td><strong>EvaluationRun</strong></td>
+          <td><code>evaluation_runs</code></td>
+          <td>Benchmark results</td>
+          <td>precision, recall, f1_score, confusion_matrix, baseline_comparison</td>
+        </tr>
+        <tr>
+          <td><strong>DiscoveredPattern</strong></td>
+          <td><code>discovered_patterns</code></td>
+          <td>Auto-discovered scam clusters</td>
+          <td>pattern_name, cluster_size, avg_similarity, keywords</td>
+        </tr>
+      </tbody>
+    </table>
 
-  <hr class="divider">
+    <hr class="divider">
 
-  <h1 class="section-heading"><span class="section-number">5</span> AI Pipeline &amp; Methodology</h1>
+    <h1 class="section-heading"><span class="section-number">5</span> AI Pipeline &amp; Methodology</h1>
 
-  <h2 class="sub-heading"><span class="section-number">5.1</span> Kill Chain Decomposition Framework</h2>
+    <h2 class="sub-heading"><span class="section-number">5.1</span> Kill Chain Decomposition Framework</h2>
 
-  <p>
-    NETRA introduces a 6-stage Cyber Fraud Kill Chain, adapted from Lockheed Martin's Cyber Kill Chain for social engineering contexts specific to Indian financial scams. Each analysed input is mapped across all six stages with confidence scoring and evidence extraction.
-  </p>
+    <p>
+      NETRA introduces a 6-stage Cyber Fraud Kill Chain, adapted from Lockheed Martin's Cyber Kill Chain for social
+      engineering contexts specific to Indian financial scams. Each analysed input is mapped across all six stages with
+      confidence scoring and evidence extraction.
+    </p>
 
-  <div class="killchain">
-    <div class="killchain-stage">
-      <div class="killchain-id">S1</div>
-      <div class="killchain-name">Contact</div>
-      <div class="killchain-desc">Initial approach via call, SMS, WhatsApp</div>
+    <div class="killchain">
+      <div class="killchain-stage">
+        <div class="killchain-id">S1</div>
+        <div class="killchain-name">Contact</div>
+        <div class="killchain-desc">Initial approach via call, SMS, WhatsApp</div>
+      </div>
+      <div class="killchain-stage">
+        <div class="killchain-id">S2</div>
+        <div class="killchain-name">Pretext</div>
+        <div class="killchain-desc">Fabricated cover story or authority claim</div>
+      </div>
+      <div class="killchain-stage">
+        <div class="killchain-id">S3</div>
+        <div class="killchain-name">Pressure</div>
+        <div class="killchain-desc">Urgency creation, fear induction, deadlines</div>
+      </div>
+      <div class="killchain-stage">
+        <div class="killchain-id">S4</div>
+        <div class="killchain-name">Isolation</div>
+        <div class="killchain-desc">Prevent victim from consulting others</div>
+      </div>
+      <div class="killchain-stage">
+        <div class="killchain-id">S5</div>
+        <div class="killchain-name">Extraction</div>
+        <div class="killchain-desc">Financial or data theft execution</div>
+      </div>
+      <div class="killchain-stage">
+        <div class="killchain-id">S6</div>
+        <div class="killchain-name">Persistence</div>
+        <div class="killchain-desc">Maintain control, prevent reporting</div>
+      </div>
     </div>
-    <div class="killchain-stage">
-      <div class="killchain-id">S2</div>
-      <div class="killchain-name">Pretext</div>
-      <div class="killchain-desc">Fabricated cover story or authority claim</div>
+
+    <div class="callout callout-stat mt-8">
+      <span class="callout-label">Research Basis</span>
+      This framework operationalises concepts from Cialdini's Principles of Influence (2001), Kahneman &amp; Tversky's
+      Prospect Theory (1979), and Milgram's obedience research (1963) — mapping psychological manipulation tactics to a
+      structured, machine-readable attack lifecycle model that enables granular forensic analysis.
     </div>
-    <div class="killchain-stage">
-      <div class="killchain-id">S3</div>
-      <div class="killchain-name">Pressure</div>
-      <div class="killchain-desc">Urgency creation, fear induction, deadlines</div>
-    </div>
-    <div class="killchain-stage">
-      <div class="killchain-id">S4</div>
-      <div class="killchain-name">Isolation</div>
-      <div class="killchain-desc">Prevent victim from consulting others</div>
-    </div>
-    <div class="killchain-stage">
-      <div class="killchain-id">S5</div>
-      <div class="killchain-name">Extraction</div>
-      <div class="killchain-desc">Financial or data theft execution</div>
-    </div>
-    <div class="killchain-stage">
-      <div class="killchain-id">S6</div>
-      <div class="killchain-name">Persistence</div>
-      <div class="killchain-desc">Maintain control, prevent reporting</div>
-    </div>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">6</div>
   </div>
 
-  <div class="callout callout-stat mt-8">
-    <span class="callout-label">Research Basis</span>
-    This framework operationalises concepts from Cialdini's Principles of Influence (2001), Kahneman &amp; Tversky's Prospect Theory (1979), and Milgram's obedience research (1963) — mapping psychological manipulation tactics to a structured, machine-readable attack lifecycle model that enables granular forensic analysis.
-  </div>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">6</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 7 — ENTITY EXTRACTION + LLM ROUTING + CORE FEATURES
      ================================================================ -->
-<div class="page">
-  <h2 class="sub-heading"><span class="section-number">5.2</span> Entity Extraction Pipeline</h2>
+  <div class="page">
+    <h2 class="sub-heading"><span class="section-number">5.2</span> Entity Extraction Pipeline</h2>
 
-  <p>
-    NETRA employs a dual-stage Named Entity Recognition (NER) approach specifically designed for Indian financial identifiers that standard NLP models fail to capture.
-  </p>
+    <p>
+      NETRA employs a dual-stage Named Entity Recognition (NER) approach specifically designed for Indian financial
+      identifiers that standard NLP models fail to capture.
+    </p>
 
-  <div class="two-col">
-    <div>
-      <h3 class="minor-heading">Stage 1 — Regex Pattern Matching</h3>
-      <p class="text-sm">Purpose-built patterns for Indian financial entities:</p>
-      <ul class="list-disc">
-        <li>Phone numbers: <span class="inline-code">+91-XXXXX-XXXXX</span></li>
-        <li>UPI VPAs: <span class="inline-code">name@upi</span>, <span class="inline-code">name@paytm</span></li>
-        <li>Bank accounts: 9–18 digit patterns</li>
-        <li>IFSC codes: <span class="inline-code">SBIN0001234</span></li>
-        <li>Aadhaar: 12-digit with spacing</li>
-        <li>PAN: <span class="inline-code">ABCDE1234F</span></li>
-        <li>Monetary amounts: ₹, Rs., INR formats</li>
-      </ul>
+    <div class="two-col">
+      <div>
+        <h3 class="minor-heading">Stage 1 — Regex Pattern Matching</h3>
+        <p class="text-sm">Purpose-built patterns for Indian financial entities:</p>
+        <ul class="list-disc">
+          <li>Phone numbers: <span class="inline-code">+91-XXXXX-XXXXX</span></li>
+          <li>UPI VPAs: <span class="inline-code">name@upi</span>, <span class="inline-code">name@paytm</span></li>
+          <li>Bank accounts: 9–18 digit patterns</li>
+          <li>IFSC codes: <span class="inline-code">SBIN0001234</span></li>
+          <li>Aadhaar: 12-digit with spacing</li>
+          <li>PAN: <span class="inline-code">ABCDE1234F</span></li>
+          <li>Monetary amounts: ₹, Rs., INR formats</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="minor-heading">Stage 2 — LLM Contextual Extraction</h3>
+        <p class="text-sm">Gemini 2.5 Flash extracts entities regex cannot:</p>
+        <ul class="list-disc">
+          <li>Persons: Named individuals in conversation</li>
+          <li>Organisations: Banks, government agencies</li>
+          <li>Locations: Cities, states, addresses</li>
+          <li>Designations: "Inspector", "Manager"</li>
+          <li>Identity document references</li>
+          <li>Temporal markers and deadlines</li>
+          <li>Contextual relationships between entities</li>
+        </ul>
+      </div>
     </div>
-    <div>
-      <h3 class="minor-heading">Stage 2 — LLM Contextual Extraction</h3>
-      <p class="text-sm">Gemini 2.5 Flash extracts entities regex cannot:</p>
-      <ul class="list-disc">
-        <li>Persons: Named individuals in conversation</li>
-        <li>Organisations: Banks, government agencies</li>
-        <li>Locations: Cities, states, addresses</li>
-        <li>Designations: "Inspector", "Manager"</li>
-        <li>Identity document references</li>
-        <li>Temporal markers and deadlines</li>
-        <li>Contextual relationships between entities</li>
-      </ul>
+
+    <h2 class="sub-heading"><span class="section-number">5.3</span> LLM Routing &amp; Fallback Strategy</h2>
+
+    <p>
+      NETRA implements a tiered LLM routing architecture that guarantees response availability regardless of individual
+      model status. The system never presents an error to the end user.
+    </p>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th>Provider / Model</th>
+          <th>Timeout</th>
+          <th>Use Case</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Primary</strong></td>
+          <td>Google Gemini 2.5 Flash</td>
+          <td>30s</td>
+          <td>Deep analysis, structured JSON output, vision OCR</td>
+        </tr>
+        <tr>
+          <td><strong>Fallback 1</strong></td>
+          <td>Groq Llama 3.3 70B Versatile</td>
+          <td>30s</td>
+          <td>Complex detection when Gemini is rate-limited</td>
+        </tr>
+        <tr>
+          <td><strong>Fallback 2</strong></td>
+          <td>Groq Llama 3.1 8B Instant</td>
+          <td>15s</td>
+          <td>Simple extraction, language detection</td>
+        </tr>
+        <tr>
+          <td><strong>Last Resort</strong></td>
+          <td>Rule-based heuristic engine</td>
+          <td>—</td>
+          <td>Keyword/pattern matching when all LLMs are down</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <h1 class="section-heading"><span class="section-number">6</span> Core Features</h1>
+
+    <div class="feature-grid">
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          I4C/NCRB Alert Generation
+        </div>
+        <p class="feature-item-desc">Auto-generates formal alert documents compatible with Indian Cyber Crime
+          Coordination Centre filing format. Includes case summary, entity list, legal sections, and evidence hash.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Forensic Dossier Export
+        </div>
+        <p class="feature-item-desc">Downloadable evidence package containing kill chain analysis, entity map, legal
+          sections, confidence scoring, and SHA-256 evidence hash for forensic admissibility.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+          Counterfeit Currency Detection
+        </div>
+        <p class="feature-item-desc">10-point RBI security feature verification: watermark, security thread, latent
+          image, microlettering, intaglio printing, colour-shifting ink, see-through register, fluorescence, OVI, number
+          panel.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+          Geospatial Crime Intelligence
+        </div>
+        <p class="feature-item-desc">MapLibre GL JS heatmap visualisation of scam origins mapped to India's known
+          cybercrime corridors — Jamtara, Mewat, Bharatpur, Alwar — with NCRB hotspot data overlay.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+            <line x1="4" y1="22" x2="4" y2="15" />
+          </svg>
+          Causal Intervention Simulator
+        </div>
+        <p class="feature-item-desc">Models "what-if" enforcement scenarios: freezing a bank account, blocking a phone
+          number, or suspending a UPI ID — calculating downstream disruption across the fraud network in real time.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+          Cross-Case Syndicate Detection
+        </div>
+        <p class="feature-item-desc">Entities appearing across multiple unrelated cases are automatically flagged as
+          potential organised crime nodes. BFS community detection clusters connected entities into syndicate groups.
+        </p>
+      </div>
     </div>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">7</div>
   </div>
 
-  <h2 class="sub-heading"><span class="section-number">5.3</span> LLM Routing &amp; Fallback Strategy</h2>
-
-  <p>
-    NETRA implements a tiered LLM routing architecture that guarantees response availability regardless of individual model status. The system never presents an error to the end user.
-  </p>
-
-  <table class="doc-table">
-    <thead>
-      <tr><th>Tier</th><th>Provider / Model</th><th>Timeout</th><th>Use Case</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Primary</strong></td><td>Google Gemini 2.5 Flash</td><td>30s</td><td>Deep analysis, structured JSON output, vision OCR</td></tr>
-      <tr><td><strong>Fallback 1</strong></td><td>Groq Llama 3.3 70B Versatile</td><td>30s</td><td>Complex detection when Gemini is rate-limited</td></tr>
-      <tr><td><strong>Fallback 2</strong></td><td>Groq Llama 3.1 8B Instant</td><td>15s</td><td>Simple extraction, language detection</td></tr>
-      <tr><td><strong>Last Resort</strong></td><td>Rule-based heuristic engine</td><td>—</td><td>Keyword/pattern matching when all LLMs are down</td></tr>
-    </tbody>
-  </table>
-
-  <hr class="divider">
-
-  <h1 class="section-heading"><span class="section-number">6</span> Core Features</h1>
-
-  <div class="feature-grid">
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        I4C/NCRB Alert Generation
-      </div>
-      <p class="feature-item-desc">Auto-generates formal alert documents compatible with Indian Cyber Crime Coordination Centre filing format. Includes case summary, entity list, legal sections, and evidence hash.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Forensic Dossier Export
-      </div>
-      <p class="feature-item-desc">Downloadable evidence package containing kill chain analysis, entity map, legal sections, confidence scoring, and SHA-256 evidence hash for forensic admissibility.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        Counterfeit Currency Detection
-      </div>
-      <p class="feature-item-desc">10-point RBI security feature verification: watermark, security thread, latent image, microlettering, intaglio printing, colour-shifting ink, see-through register, fluorescence, OVI, number panel.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Geospatial Crime Intelligence
-      </div>
-      <p class="feature-item-desc">MapLibre GL JS heatmap visualisation of scam origins mapped to India's known cybercrime corridors — Jamtara, Mewat, Bharatpur, Alwar — with NCRB hotspot data overlay.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        Causal Intervention Simulator
-      </div>
-      <p class="feature-item-desc">Models "what-if" enforcement scenarios: freezing a bank account, blocking a phone number, or suspending a UPI ID — calculating downstream disruption across the fraud network in real time.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        Cross-Case Syndicate Detection
-      </div>
-      <p class="feature-item-desc">Entities appearing across multiple unrelated cases are automatically flagged as potential organised crime nodes. BFS community detection clusters connected entities into syndicate groups.</p>
-    </div>
-  </div>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">7</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 8 — INNOVATION & RESEARCH
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">7</span> Innovation &amp; Research Contribution</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">7</span> Innovation &amp; Research Contribution</h1>
 
-  <p class="lead">
-    NETRA makes four distinct contributions that advance the state of practice in digital fraud detection and citizen protection.
-  </p>
+    <p class="lead">
+      NETRA makes four distinct contributions that advance the state of practice in digital fraud detection and citizen
+      protection.
+    </p>
 
-  <h2 class="sub-heading">Contribution 1 — Kill Chain Decomposition for Social Engineering</h2>
-  <p>
-    Existing systems treat scam detection as binary classification (scam / not-scam). NETRA introduces a structured 6-stage attack lifecycle model that maps <em>where</em> in the psychological manipulation sequence a scam message falls. This enables law enforcement to understand attack progression, identify the specific pressure techniques being employed, and intervene at the optimal stage. The framework adapts Lockheed Martin's Cyber Kill Chain — originally designed for nation-state cyber attacks — to the social engineering domain, grounding each stage in established psychological research.
-  </p>
+    <h2 class="sub-heading">Contribution 1 — Kill Chain Decomposition for Social Engineering</h2>
+    <p>
+      Existing systems treat scam detection as binary classification (scam / not-scam). NETRA introduces a structured
+      6-stage attack lifecycle model that maps <em>where</em> in the psychological manipulation sequence a scam message
+      falls. This enables law enforcement to understand attack progression, identify the specific pressure techniques
+      being employed, and intervene at the optimal stage. The framework adapts Lockheed Martin's Cyber Kill Chain —
+      originally designed for nation-state cyber attacks — to the social engineering domain, grounding each stage in
+      established psychological research.
+    </p>
 
-  <h2 class="sub-heading">Contribution 2 — Automated Graph Intelligence from Unstructured Text</h2>
-  <p>
-    Rather than requiring manual entity tagging or structured input, NETRA automatically extracts Indian-specific financial identifiers from free-text messages and populates a fraud network graph. The influence-based risk propagation algorithm (Independent Cascade model, Kempe et al., KDD 2003) then surfaces connected criminal infrastructure that would be invisible in case-by-case analysis. This transforms individual victim reports into collective intelligence.
-  </p>
+    <h2 class="sub-heading">Contribution 2 — Automated Graph Intelligence from Unstructured Text</h2>
+    <p>
+      Rather than requiring manual entity tagging or structured input, NETRA automatically extracts Indian-specific
+      financial identifiers from free-text messages and populates a fraud network graph. The influence-based risk
+      propagation algorithm (Independent Cascade model, Kempe et al., KDD 2003) then surfaces connected criminal
+      infrastructure that would be invisible in case-by-case analysis. This transforms individual victim reports into
+      collective intelligence.
+    </p>
 
-  <h2 class="sub-heading">Contribution 3 — Causal Intervention Modelling</h2>
-  <p>
-    The causal intervention simulator enables law enforcement to model the downstream impact of enforcement actions before executing them. By calculating how freezing a specific node (bank account, phone number, UPI ID) would disrupt the connected fraud network, the system enables evidence-based prioritisation of limited enforcement resources. This approach is grounded in network intervention optimisation theory (Albert et al., Nature 2000).
-  </p>
+    <h2 class="sub-heading">Contribution 3 — Causal Intervention Modelling</h2>
+    <p>
+      The causal intervention simulator enables law enforcement to model the downstream impact of enforcement actions
+      before executing them. By calculating how freezing a specific node (bank account, phone number, UPI ID) would
+      disrupt the connected fraud network, the system enables evidence-based prioritisation of limited enforcement
+      resources. This approach is grounded in network intervention optimisation theory (Albert et al., Nature 2000).
+    </p>
 
-  <h2 class="sub-heading">Contribution 4 — Scalable Citizen Inoculation</h2>
-  <p>
-    NETRA implements inoculation theory (McGuire, 1961; van der Linden, 2017) through adversarial AI simulations. Citizens experience realistic scam scenarios in a controlled environment, building psychological resilience through exposure. The guardian agent monitors susceptibility in real-time and triggers protective interventions, providing personalised debrief analysis that identifies specific vulnerability patterns.
-  </p>
+    <h2 class="sub-heading">Contribution 4 — Scalable Citizen Inoculation</h2>
+    <p>
+      NETRA implements inoculation theory (McGuire, 1961; van der Linden, 2017) through adversarial AI simulations.
+      Citizens experience realistic scam scenarios in a controlled environment, building psychological resilience
+      through exposure. The guardian agent monitors susceptibility in real-time and triggers protective interventions,
+      providing personalised debrief analysis that identifies specific vulnerability patterns.
+    </p>
 
-  <hr class="divider">
+    <hr class="divider">
 
-  <h2 class="sub-heading">API Coverage — 40+ Production Endpoints</h2>
+    <h2 class="sub-heading">API Coverage — 40+ Production Endpoints</h2>
 
-  <table class="doc-table text-xs">
-    <thead>
-      <tr><th>Module</th><th>Endpoints</th><th>Key Operations</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Detection</strong></td><td>8</td><td>Text analysis, image OCR, counterfeit, case detail, dossier, intelligence, alert, recent</td></tr>
-      <tr><td><strong>Graph</strong></td><td>8</td><td>Search, node detail, network, recent, stats, risk propagation, communities, intervention</td></tr>
-      <tr><td><strong>Simulation</strong></td><td>4</td><td>Scenarios, start, respond, debrief</td></tr>
-      <tr><td><strong>Dashboard</strong></td><td>4</td><td>Metrics, analytics, threat feed, geospatial</td></tr>
-      <tr><td><strong>Evaluation</strong></td><td>3</td><td>Run benchmark, latest results, history</td></tr>
-      <tr><td><strong>Intelligence</strong></td><td>7</td><td>Communities, graph stats, centrality, PageRank, clusters, discover, similar</td></tr>
-      <tr><td><strong>Disruption</strong></td><td>3</td><td>Actions list, bank freeze, telecom block</td></tr>
-      <tr><td><strong>Config</strong></td><td>2</td><td>Health check, Mapbox token</td></tr>
-    </tbody>
-  </table>
+    <table class="doc-table text-xs">
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>Endpoints</th>
+          <th>Key Operations</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Detection</strong></td>
+          <td>8</td>
+          <td>Text analysis, image OCR, counterfeit, case detail, dossier, intelligence, alert, recent</td>
+        </tr>
+        <tr>
+          <td><strong>Graph</strong></td>
+          <td>8</td>
+          <td>Search, node detail, network, recent, stats, risk propagation, communities, intervention</td>
+        </tr>
+        <tr>
+          <td><strong>Simulation</strong></td>
+          <td>4</td>
+          <td>Scenarios, start, respond, debrief</td>
+        </tr>
+        <tr>
+          <td><strong>Dashboard</strong></td>
+          <td>4</td>
+          <td>Metrics, analytics, threat feed, geospatial</td>
+        </tr>
+        <tr>
+          <td><strong>Evaluation</strong></td>
+          <td>3</td>
+          <td>Run benchmark, latest results, history</td>
+        </tr>
+        <tr>
+          <td><strong>Intelligence</strong></td>
+          <td>7</td>
+          <td>Communities, graph stats, centrality, PageRank, clusters, discover, similar</td>
+        </tr>
+        <tr>
+          <td><strong>Disruption</strong></td>
+          <td>3</td>
+          <td>Actions list, bank freeze, telecom block</td>
+        </tr>
+        <tr>
+          <td><strong>Config</strong></td>
+          <td>2</td>
+          <td>Health check, Mapbox token</td>
+        </tr>
+      </tbody>
+    </table>
 
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">8</div>
-</div>
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">8</div>
+  </div>
 
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 9 — EVALUATION + COMPETITIVE ANALYSIS
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">8</span> Evaluation &amp; Performance</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">8</span> Evaluation &amp; Performance</h1>
 
-  <p>
-    NETRA includes an automated evaluation module that benchmarks detection accuracy against a curated dataset of Indian scam messages and legitimate communications. The benchmark includes a TF-IDF + SVM baseline for objective comparison.
-  </p>
+    <p>
+      NETRA includes an automated evaluation module that benchmarks detection accuracy against a curated dataset of
+      Indian scam messages and legitimate communications. The benchmark includes a TF-IDF + SVM baseline for objective
+      comparison.
+    </p>
 
-  <div class="metrics-row mt-16">
-    <div class="metric-card">
-      <div class="metric-value">96.3%</div>
-      <div class="metric-label">Avg. Confidence</div>
+    <div class="metrics-row mt-16">
+      <div class="metric-card">
+        <div class="metric-value">96.3%</div>
+        <div class="metric-label">Avg. Confidence</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">&lt;3s</div>
+        <div class="metric-label">Detection Latency</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">6</div>
+        <div class="metric-label">Scam Categories</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">100%</div>
+        <div class="metric-label">API Uptime (30d)</div>
+      </div>
     </div>
-    <div class="metric-card">
-      <div class="metric-value">&lt;3s</div>
-      <div class="metric-label">Detection Latency</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value">6</div>
-      <div class="metric-label">Scam Categories</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value">100%</div>
-      <div class="metric-label">API Uptime (30d)</div>
-    </div>
+
+    <table class="doc-table mt-16">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>NETRA (Gemini 2.5 Flash)</th>
+          <th>Baseline (TF-IDF + SVM)</th>
+          <th>Advantage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Precision</strong></td>
+          <td>1.0</td>
+          <td>0.72</td>
+          <td>+38.9%</td>
+        </tr>
+        <tr>
+          <td><strong>Kill Chain Analysis</strong></td>
+          <td>6-stage decomposition</td>
+          <td>Not supported</td>
+          <td>Unique capability</td>
+        </tr>
+        <tr>
+          <td><strong>Entity Extraction</strong></td>
+          <td>14 Indian-specific types</td>
+          <td>Not supported</td>
+          <td>Unique capability</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-modal Input</strong></td>
+          <td>Text + Image + Voice</td>
+          <td>Text only</td>
+          <td>3× input modalities</td>
+        </tr>
+        <tr>
+          <td><strong>Legal Mapping</strong></td>
+          <td>IPC, IT Act, BNS 2023</td>
+          <td>Not supported</td>
+          <td>Unique capability</td>
+        </tr>
+        <tr>
+          <td><strong>Languages</strong></td>
+          <td>Hindi + English (mixed-code)</td>
+          <td>English only</td>
+          <td>Bilingual coverage</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <h1 class="section-heading"><span class="section-number">9</span> Competitive Analysis</h1>
+
+    <table class="doc-table comparison-matrix">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>NETRA</th>
+          <th>Truecaller</th>
+          <th>1930 Helpline</th>
+          <th>ScamAdviser</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Real-time detection</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="partial">~</span></td>
+        </tr>
+        <tr>
+          <td>Kill Chain decomposition</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Multi-modal input</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Fraud network graph</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="partial">~</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Citizen training</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Legal section mapping</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="partial">~</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Evidence chain-of-custody</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Geospatial crime mapping</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="partial">~</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>Causal intervention</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+        <tr>
+          <td>India-specific (IPC/BNS)</td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="partial">~</span></td>
+          <td><span class="check">&#10003;</span></td>
+          <td><span class="cross">&#10007;</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">9</div>
   </div>
 
-  <table class="doc-table mt-16">
-    <thead>
-      <tr><th>Metric</th><th>NETRA (Gemini 2.5 Flash)</th><th>Baseline (TF-IDF + SVM)</th><th>Advantage</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Precision</strong></td><td>1.0</td><td>0.72</td><td>+38.9%</td></tr>
-      <tr><td><strong>Kill Chain Analysis</strong></td><td>6-stage decomposition</td><td>Not supported</td><td>Unique capability</td></tr>
-      <tr><td><strong>Entity Extraction</strong></td><td>14 Indian-specific types</td><td>Not supported</td><td>Unique capability</td></tr>
-      <tr><td><strong>Multi-modal Input</strong></td><td>Text + Image + Voice</td><td>Text only</td><td>3× input modalities</td></tr>
-      <tr><td><strong>Legal Mapping</strong></td><td>IPC, IT Act, BNS 2023</td><td>Not supported</td><td>Unique capability</td></tr>
-      <tr><td><strong>Languages</strong></td><td>Hindi + English (mixed-code)</td><td>English only</td><td>Bilingual coverage</td></tr>
-    </tbody>
-  </table>
-
-  <hr class="divider">
-
-  <h1 class="section-heading"><span class="section-number">9</span> Competitive Analysis</h1>
-
-  <table class="doc-table comparison-matrix">
-    <thead>
-      <tr>
-        <th>Capability</th>
-        <th>NETRA</th>
-        <th>Truecaller</th>
-        <th>1930 Helpline</th>
-        <th>ScamAdviser</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Real-time detection</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="partial">~</span></td>
-      </tr>
-      <tr>
-        <td>Kill Chain decomposition</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Multi-modal input</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Fraud network graph</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="partial">~</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Citizen training</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Legal section mapping</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="partial">~</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Evidence chain-of-custody</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Geospatial crime mapping</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="partial">~</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>Causal intervention</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-      <tr>
-        <td>India-specific (IPC/BNS)</td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="partial">~</span></td>
-        <td><span class="check">&#10003;</span></td>
-        <td><span class="cross">&#10007;</span></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">9</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 10 — SECURITY + IMPACT
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">10</span> Security, Scalability &amp; Responsible AI</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">10</span> Security, Scalability &amp; Responsible AI</h1>
 
-  <div class="two-col">
-    <div>
-      <h3 class="minor-heading">Security Measures</h3>
-      <ul class="list-disc">
-        <li><strong>Evidence integrity:</strong> SHA-256 hashing on every input for cryptographic chain-of-custody</li>
-        <li><strong>Audit trail:</strong> Every agent action logged with model, latency, input/output summary</li>
-        <li><strong>Data isolation:</strong> No PII stored beyond analysis session; inputs processed but not retained</li>
-        <li><strong>CORS policy:</strong> Whitelisted origins only (Vercel frontend domain)</li>
-        <li><strong>Input validation:</strong> Pydantic models enforce type safety, size limits (10MB images, 10K text)</li>
-      </ul>
+    <div class="two-col">
+      <div>
+        <h3 class="minor-heading">Security Measures</h3>
+        <ul class="list-disc">
+          <li><strong>Evidence integrity:</strong> SHA-256 hashing on every input for cryptographic chain-of-custody
+          </li>
+          <li><strong>Audit trail:</strong> Every agent action logged with model, latency, input/output summary</li>
+          <li><strong>Data isolation:</strong> No PII stored beyond analysis session; inputs processed but not retained
+          </li>
+          <li><strong>CORS policy:</strong> Whitelisted origins only (Vercel frontend domain)</li>
+          <li><strong>Input validation:</strong> Pydantic models enforce type safety, size limits (10MB images, 10K
+            text)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="minor-heading">Scalability Design</h3>
+        <ul class="list-disc">
+          <li><strong>Async-first:</strong> FastAPI with async SQLAlchemy; non-blocking I/O throughout</li>
+          <li><strong>Connection pooling:</strong> SQLAlchemy pool_size=5, max_overflow=10, pool_recycle=300s</li>
+          <li><strong>Stateless API:</strong> No server-side sessions; horizontally scalable behind load balancer</li>
+          <li><strong>CDN-backed frontend:</strong> Vercel edge network with automatic caching</li>
+          <li><strong>Database:</strong> Neon PostgreSQL with auto-scaling and connection pooling</li>
+        </ul>
+      </div>
     </div>
-    <div>
-      <h3 class="minor-heading">Scalability Design</h3>
-      <ul class="list-disc">
-        <li><strong>Async-first:</strong> FastAPI with async SQLAlchemy; non-blocking I/O throughout</li>
-        <li><strong>Connection pooling:</strong> SQLAlchemy pool_size=5, max_overflow=10, pool_recycle=300s</li>
-        <li><strong>Stateless API:</strong> No server-side sessions; horizontally scalable behind load balancer</li>
-        <li><strong>CDN-backed frontend:</strong> Vercel edge network with automatic caching</li>
-        <li><strong>Database:</strong> Neon PostgreSQL with auto-scaling and connection pooling</li>
-      </ul>
+
+    <h3 class="minor-heading mt-16">Responsible AI Considerations</h3>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Principle</th>
+          <th>Implementation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Transparency</strong></td>
+          <td>Every detection includes the model used, confidence score, and AI reasoning — users always know how a
+            conclusion was reached</td>
+        </tr>
+        <tr>
+          <td><strong>Graceful degradation</strong></td>
+          <td>Multi-tier fallback (Gemini → Groq 70B → Groq 8B → Rule-based) ensures the system never fails silently or
+            presents errors</td>
+        </tr>
+        <tr>
+          <td><strong>No automated enforcement</strong></td>
+          <td>Disruption actions (bank freeze, telecom block) are generated as payloads but never executed without human
+            authorisation</td>
+        </tr>
+        <tr>
+          <td><strong>Simulation safety</strong></td>
+          <td>Guardian agent monitors user susceptibility during simulations and triggers protective intervention before
+            psychological distress</td>
+        </tr>
+        <tr>
+          <td><strong>Bias awareness</strong></td>
+          <td>Training data includes Hindi-English code-mixed text to avoid English-only detection bias prevalent in
+            imported solutions</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <h1 class="section-heading"><span class="section-number">11</span> Impact — Government, Social &amp; Business</h1>
+
+    <div class="feature-grid">
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 21h18" />
+            <path d="M9 8h1" />
+            <path d="M9 12h1" />
+            <path d="M9 16h1" />
+            <path d="M14 8h1" />
+            <path d="M14 12h1" />
+            <path d="M14 16h1" />
+            <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+          </svg>
+          Government Relevance
+        </div>
+        <p class="feature-item-desc">Directly supports I4C (Indian Cyber Crime Coordination Centre) with automated alert
+          generation, NCRB-compatible crime mapping, and IPC/IT Act/BNS legal section mapping. Designed for integration
+          with the National Cyber Crime Reporting Portal (cybercrime.gov.in) and 1930 Helpline infrastructure.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          Social Impact
+        </div>
+        <p class="feature-item-desc">Adversarial simulation training builds psychological resilience among vulnerable
+          populations — elderly citizens, first-time smartphone users, and individuals unfamiliar with digital fraud
+          tactics. Shifts India's approach from reactive complaint processing to proactive citizen protection.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+          Business Impact
+        </div>
+        <p class="feature-item-desc">Banks and financial institutions can integrate NETRA's detection API to screen
+          incoming transaction disputes, automate fraud reporting, and reduce manual investigation costs. The disruption
+          action framework provides bank-ready freeze/block payloads.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          Scalability Potential
+        </div>
+        <p class="feature-item-desc">The architecture is designed for national-scale deployment at I4C. Graph
+          intelligence can scale to millions of entities with PostgreSQL partitioning and graph database migration. The
+          modular API design enables independent scaling of detection, graph, and simulation services.</p>
+      </div>
     </div>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">10</div>
   </div>
 
-  <h3 class="minor-heading mt-16">Responsible AI Considerations</h3>
-
-  <table class="doc-table">
-    <thead>
-      <tr><th>Principle</th><th>Implementation</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Transparency</strong></td><td>Every detection includes the model used, confidence score, and AI reasoning — users always know how a conclusion was reached</td></tr>
-      <tr><td><strong>Graceful degradation</strong></td><td>Multi-tier fallback (Gemini → Groq 70B → Groq 8B → Rule-based) ensures the system never fails silently or presents errors</td></tr>
-      <tr><td><strong>No automated enforcement</strong></td><td>Disruption actions (bank freeze, telecom block) are generated as payloads but never executed without human authorisation</td></tr>
-      <tr><td><strong>Simulation safety</strong></td><td>Guardian agent monitors user susceptibility during simulations and triggers protective intervention before psychological distress</td></tr>
-      <tr><td><strong>Bias awareness</strong></td><td>Training data includes Hindi-English code-mixed text to avoid English-only detection bias prevalent in imported solutions</td></tr>
-    </tbody>
-  </table>
-
-  <hr class="divider">
-
-  <h1 class="section-heading"><span class="section-number">11</span> Impact — Government, Social &amp; Business</h1>
-
-  <div class="feature-grid">
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
-        Government Relevance
-      </div>
-      <p class="feature-item-desc">Directly supports I4C (Indian Cyber Crime Coordination Centre) with automated alert generation, NCRB-compatible crime mapping, and IPC/IT Act/BNS legal section mapping. Designed for integration with the National Cyber Crime Reporting Portal (cybercrime.gov.in) and 1930 Helpline infrastructure.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Social Impact
-      </div>
-      <p class="feature-item-desc">Adversarial simulation training builds psychological resilience among vulnerable populations — elderly citizens, first-time smartphone users, and individuals unfamiliar with digital fraud tactics. Shifts India's approach from reactive complaint processing to proactive citizen protection.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Business Impact
-      </div>
-      <p class="feature-item-desc">Banks and financial institutions can integrate NETRA's detection API to screen incoming transaction disputes, automate fraud reporting, and reduce manual investigation costs. The disruption action framework provides bank-ready freeze/block payloads.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-item-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        Scalability Potential
-      </div>
-      <p class="feature-item-desc">The architecture is designed for national-scale deployment at I4C. Graph intelligence can scale to millions of entities with PostgreSQL partitioning and graph database migration. The modular API design enables independent scaling of detection, graph, and simulation services.</p>
-    </div>
-  </div>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">10</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 11 — DEPLOYMENT + FUTURE SCOPE
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">12</span> Deployment &amp; Reproducibility</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">12</span> Deployment &amp; Reproducibility</h1>
 
-  <p>
-    NETRA is fully deployed and accessible as a production system. The architecture separates frontend and backend into independently deployable services with automated CI/CD from the GitHub repository.
-  </p>
+    <p>
+      NETRA is fully deployed and accessible as a production system. The architecture separates frontend and backend
+      into independently deployable services with automated CI/CD from the GitHub repository.
+    </p>
 
-  <table class="doc-table">
-    <thead>
-      <tr><th>Component</th><th>Service</th><th>URL</th><th>Status</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Frontend</strong></td><td>Vercel</td><td>netra-dusky.vercel.app</td><td>Production — Live</td></tr>
-      <tr><td><strong>Backend</strong></td><td>Railway</td><td>web-production-d1c43.up.railway.app</td><td>Production — Live</td></tr>
-      <tr><td><strong>Database</strong></td><td>Neon PostgreSQL</td><td>Cloud-hosted (US-East)</td><td>Production — Live</td></tr>
-      <tr><td><strong>Source Code</strong></td><td>GitHub</td><td>github.com/bhaskarkarn1/NETRA</td><td>Public Repository</td></tr>
-      <tr><td><strong>API Docs</strong></td><td>Swagger UI</td><td>/docs endpoint on backend</td><td>Auto-generated</td></tr>
-    </tbody>
-  </table>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Service</th>
+          <th>URL</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Frontend</strong></td>
+          <td>Vercel</td>
+          <td>netra-dusky.vercel.app</td>
+          <td>Production — Live</td>
+        </tr>
+        <tr>
+          <td><strong>Backend</strong></td>
+          <td>Railway</td>
+          <td>web-production-d1c43.up.railway.app</td>
+          <td>Production — Live</td>
+        </tr>
+        <tr>
+          <td><strong>Database</strong></td>
+          <td>Neon PostgreSQL</td>
+          <td>Cloud-hosted (US-East)</td>
+          <td>Production — Live</td>
+        </tr>
+        <tr>
+          <td><strong>Source Code</strong></td>
+          <td>GitHub</td>
+          <td>github.com/bhaskarkarn1/NETRA</td>
+          <td>Public Repository</td>
+        </tr>
+        <tr>
+          <td><strong>API Docs</strong></td>
+          <td>Swagger UI</td>
+          <td>/docs endpoint on backend</td>
+          <td>Auto-generated</td>
+        </tr>
+      </tbody>
+    </table>
 
-  <h3 class="minor-heading mt-16">Local Reproduction</h3>
-  <p class="text-sm text-secondary">
-    The system can be reproduced locally with Python 3.11+, Node.js 18+, and a Google Gemini API key (free tier). Backend: <span class="inline-code">pip install -r requirements.txt && uvicorn app.main:app</span>. Frontend: <span class="inline-code">npm install && npm run dev</span>. Database tables are auto-created on first startup.
-  </p>
+    <h3 class="minor-heading mt-16">Local Reproduction</h3>
+    <p class="text-sm text-secondary">
+      The system can be reproduced locally with Python 3.11+, Node.js 18+, and a Google Gemini API key (free tier).
+      Backend: <span class="inline-code">pip install -r requirements.txt && uvicorn app.main:app</span>. Frontend: <span
+        class="inline-code">npm install && npm run dev</span>. Database tables are auto-created on first startup.
+    </p>
 
-  <h3 class="minor-heading">Codebase Statistics</h3>
+    <h3 class="minor-heading">Codebase Statistics</h3>
 
-  <div class="metrics-row mt-8">
-    <div class="metric-card">
-      <div class="metric-value">25+</div>
-      <div class="metric-label">Python Files</div>
+    <div class="metrics-row mt-8">
+      <div class="metric-card">
+        <div class="metric-value">25+</div>
+        <div class="metric-label">Python Files</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">15+</div>
+        <div class="metric-label">TypeScript Files</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">12</div>
+        <div class="metric-label">Database Models</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">40+</div>
+        <div class="metric-label">REST Endpoints</div>
+      </div>
     </div>
-    <div class="metric-card">
-      <div class="metric-value">15+</div>
-      <div class="metric-label">TypeScript Files</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value">12</div>
-      <div class="metric-label">Database Models</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value">40+</div>
-      <div class="metric-label">REST Endpoints</div>
-    </div>
+
+    <hr class="divider">
+
+    <h1 class="section-heading"><span class="section-number">13</span> Future Scope</h1>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Initiative</th>
+          <th>Description</th>
+          <th>Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Multilingual expansion</strong></td>
+          <td>Extend detection to Hindi, Tamil, Telugu, Bengali, and Marathi scam messages with native script support
+          </td>
+          <td>Coverage for 90%+ of India's digital population</td>
+        </tr>
+        <tr>
+          <td><strong>Browser extension</strong></td>
+          <td>Chrome extension for real-time SMS/WhatsApp/email scanning directly within messaging applications</td>
+          <td>Zero-friction detection at the point of contact</td>
+        </tr>
+        <tr>
+          <td><strong>Mobile application</strong></td>
+          <td>React Native companion app with camera-first UX for screenshot capture and analysis</td>
+          <td>Accessible to mobile-first user demographics</td>
+        </tr>
+        <tr>
+          <td><strong>Real-time streaming</strong></td>
+          <td>WebSocket-based live threat feed with push notifications for emerging scam patterns</td>
+          <td>Proactive alerting for law enforcement agencies</td>
+        </tr>
+        <tr>
+          <td><strong>Graph database migration</strong></td>
+          <td>Migration from PostgreSQL to Neo4j for complex graph queries at scale (millions of entities)</td>
+          <td>Sub-second traversal for syndicate detection</td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp Business API</strong></td>
+          <td>Direct integration for automated scam screening within WhatsApp conversations</td>
+          <td>Protection at India's largest messaging platform</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">11</div>
   </div>
 
-  <hr class="divider">
-
-  <h1 class="section-heading"><span class="section-number">13</span> Future Scope</h1>
-
-  <table class="doc-table">
-    <thead>
-      <tr><th>Initiative</th><th>Description</th><th>Impact</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Multilingual expansion</strong></td>
-        <td>Extend detection to Hindi, Tamil, Telugu, Bengali, and Marathi scam messages with native script support</td>
-        <td>Coverage for 90%+ of India's digital population</td>
-      </tr>
-      <tr>
-        <td><strong>Browser extension</strong></td>
-        <td>Chrome extension for real-time SMS/WhatsApp/email scanning directly within messaging applications</td>
-        <td>Zero-friction detection at the point of contact</td>
-      </tr>
-      <tr>
-        <td><strong>Mobile application</strong></td>
-        <td>React Native companion app with camera-first UX for screenshot capture and analysis</td>
-        <td>Accessible to mobile-first user demographics</td>
-      </tr>
-      <tr>
-        <td><strong>Real-time streaming</strong></td>
-        <td>WebSocket-based live threat feed with push notifications for emerging scam patterns</td>
-        <td>Proactive alerting for law enforcement agencies</td>
-      </tr>
-      <tr>
-        <td><strong>Graph database migration</strong></td>
-        <td>Migration from PostgreSQL to Neo4j for complex graph queries at scale (millions of entities)</td>
-        <td>Sub-second traversal for syndicate detection</td>
-      </tr>
-      <tr>
-        <td><strong>WhatsApp Business API</strong></td>
-        <td>Direct integration for automated scam screening within WhatsApp conversations</td>
-        <td>Protection at India's largest messaging platform</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">11</div>
-</div>
-
-<!-- ================================================================
+  <!-- ================================================================
      PAGE 12 — CONCLUSION + REFERENCES
      ================================================================ -->
-<div class="page">
-  <h1 class="section-heading"><span class="section-number">14</span> Conclusion</h1>
+  <div class="page">
+    <h1 class="section-heading"><span class="section-number">14</span> Conclusion</h1>
 
-  <p class="lead">
-    NETRA demonstrates that digital fraud defence in India requires a paradigm shift from reactive complaint processing to proactive, intelligence-driven threat neutralisation.
-  </p>
-
-  <p>
-    The system's four contributions — Kill Chain decomposition, automated graph intelligence, causal intervention modelling, and citizen inoculation — address fundamental gaps in the current national cybercrime response infrastructure. Each component is grounded in established research, implemented as a production-grade service, and validated through a deployed system processing real-world inputs.
-  </p>
-
-  <p>
-    The platform is fully operational, with 40+ API endpoints, 12 database models, and a tiered AI architecture that guarantees availability through multi-model fallback. The production deployment at <strong>netra-dusky.vercel.app</strong> demonstrates that the system operates reliably at scale, and the open-source codebase enables independent verification and extension.
-  </p>
-
-  <p>
-    NETRA is designed for integration with India's existing cybercrime infrastructure — the I4C coordination centre, 1930 National Helpline, NCRB crime records, and banking sector fraud reporting systems. The architecture supports horizontal scaling to national deployment, and the modular design enables incremental adoption by law enforcement agencies at state and central levels.
-  </p>
-
-  <div class="callout callout-important mt-16">
-    <span class="callout-label">Key Takeaway</span>
-    NETRA is not a classifier — it is a <strong>cyber-threat intelligence platform</strong> that transforms individual victim reports into collective fraud network intelligence, trains citizens to resist manipulation, and provides law enforcement with actionable forensic documentation. The system operates at the intersection of AI, network science, and behavioural psychology to address what is fundamentally a national security challenge.
-  </div>
-
-  <hr class="divider">
-
-  <h1 class="section-heading">References</h1>
-
-  <ol class="ref-list">
-    <li class="ref-item">Albert, R., Jeong, H., &amp; Barabási, A. L. (2000). Error and attack tolerance of complex networks. <em>Nature</em>, 406(6794), 378–382.</li>
-    <li class="ref-item">Cialdini, R. B. (2001). <em>Influence: Science and Practice</em> (4th ed.). Allyn &amp; Bacon.</li>
-    <li class="ref-item">Kahneman, D., &amp; Tversky, A. (1979). Prospect Theory: An Analysis of Decision under Risk. <em>Econometrica</em>, 47(2), 263–291.</li>
-    <li class="ref-item">Kempe, D., Kleinberg, J., &amp; Tardos, É. (2003). Maximizing the spread of influence through a social network. <em>Proc. KDD '03</em>, 137–146.</li>
-    <li class="ref-item">Kumaraguru, P., et al. (2010). Teaching Johnny Not to Fall for Phish. <em>ACM Transactions on Internet Technology</em>, 10(2), Article 7.</li>
-    <li class="ref-item">McGuire, W. J. (1961). The effectiveness of supportive and refutational defenses in immunizing beliefs against persuasion. <em>Sociometry</em>, 24(2), 184–197.</li>
-    <li class="ref-item">Milgram, S. (1963). Behavioral Study of Obedience. <em>Journal of Abnormal and Social Psychology</em>, 67(4), 371–378.</li>
-    <li class="ref-item">Ministry of Home Affairs, India. (2024). Annual Report on Cybercrime Statistics. Indian Cyber Crime Coordination Centre (I4C).</li>
-    <li class="ref-item">Hamilton, W. L., Ying, R., &amp; Leskovec, J. (2017). Inductive Representation Learning on Large Graphs. <em>Proc. NeurIPS 2017</em>.</li>
-    <li class="ref-item">van der Linden, S. (2017). Inoculating Against Misinformation. <em>Science</em>, 358(6367), 1141–1142.</li>
-    <li class="ref-item">Reserve Bank of India. (2023). Master Directions — Banknote Security Features and Verification Guidelines.</li>
-    <li class="ref-item">National Crime Records Bureau. (2024). Crime in India 2023 — Cybercrime Statistics. Ministry of Home Affairs, Government of India.</li>
-  </ol>
-
-  <hr class="divider">
-
-  <div style="text-align: center; padding: 20px 0;">
-    <p class="text-xs text-muted mb-4" style="letter-spacing: 0.06em; text-transform: uppercase;">End of Document</p>
-    <p class="text-sm mb-4" style="color: var(--color-ink);">
-      <strong>NETRA — National Electronic Threat Recognition &amp; Analysis</strong>
+    <p class="lead">
+      NETRA demonstrates that digital fraud defence in India requires a paradigm shift from reactive complaint
+      processing to proactive, intelligence-driven threat neutralisation.
     </p>
-    <p class="text-xs text-secondary mb-0">
-      Built by Bhaskar Ranjan Karn &nbsp;·&nbsp; ET GEN AI Hackathon 2025
-    </p>
-  </div>
 
-  <div class="page-footer-line"></div>
-  <div class="page-footer-text">NETRA — Technical Submission Document</div>
-  <div class="page-number">12</div>
-</div>
+    <p>
+      The system's four contributions — Kill Chain decomposition, automated graph intelligence, causal intervention
+      modelling, and citizen inoculation — address fundamental gaps in the current national cybercrime response
+      infrastructure. Each component is grounded in established research, implemented as a production-grade service, and
+      validated through a deployed system processing real-world inputs.
+    </p>
+
+    <p>
+      The platform is fully operational, with 40+ API endpoints, 12 database models, and a tiered AI architecture that
+      guarantees availability through multi-model fallback. The production deployment at
+      <strong>netra-dusky.vercel.app</strong> demonstrates that the system operates reliably at scale, and the
+      open-source codebase enables independent verification and extension.
+    </p>
+
+    <p>
+      NETRA is designed for integration with India's existing cybercrime infrastructure — the I4C coordination centre,
+      1930 National Helpline, NCRB crime records, and banking sector fraud reporting systems. The architecture supports
+      horizontal scaling to national deployment, and the modular design enables incremental adoption by law enforcement
+      agencies at state and central levels.
+    </p>
+
+    <div class="callout callout-important mt-16">
+      <span class="callout-label">Key Takeaway</span>
+      NETRA is not a classifier — it is a <strong>cyber-threat intelligence platform</strong> that transforms individual
+      victim reports into collective fraud network intelligence, trains citizens to resist manipulation, and provides
+      law enforcement with actionable forensic documentation. The system operates at the intersection of AI, network
+      science, and behavioural psychology to address what is fundamentally a national security challenge.
+    </div>
+
+    <hr class="divider">
+
+    <h1 class="section-heading">References</h1>
+
+    <ol class="ref-list">
+      <li class="ref-item">Albert, R., Jeong, H., &amp; Barabási, A. L. (2000). Error and attack tolerance of complex
+        networks. <em>Nature</em>, 406(6794), 378–382.</li>
+      <li class="ref-item">Cialdini, R. B. (2001). <em>Influence: Science and Practice</em> (4th ed.). Allyn &amp;
+        Bacon.</li>
+      <li class="ref-item">Kahneman, D., &amp; Tversky, A. (1979). Prospect Theory: An Analysis of Decision under Risk.
+        <em>Econometrica</em>, 47(2), 263–291.
+      </li>
+      <li class="ref-item">Kempe, D., Kleinberg, J., &amp; Tardos, É. (2003). Maximizing the spread of influence through
+        a social network. <em>Proc. KDD '03</em>, 137–146.</li>
+      <li class="ref-item">Kumaraguru, P., et al. (2010). Teaching Johnny Not to Fall for Phish. <em>ACM Transactions on
+          Internet Technology</em>, 10(2), Article 7.</li>
+      <li class="ref-item">McGuire, W. J. (1961). The effectiveness of supportive and refutational defenses in
+        immunizing beliefs against persuasion. <em>Sociometry</em>, 24(2), 184–197.</li>
+      <li class="ref-item">Milgram, S. (1963). Behavioral Study of Obedience. <em>Journal of Abnormal and Social
+          Psychology</em>, 67(4), 371–378.</li>
+      <li class="ref-item">Ministry of Home Affairs, India. (2024). Annual Report on Cybercrime Statistics. Indian Cyber
+        Crime Coordination Centre (I4C).</li>
+      <li class="ref-item">Hamilton, W. L., Ying, R., &amp; Leskovec, J. (2017). Inductive Representation Learning on
+        Large Graphs. <em>Proc. NeurIPS 2017</em>.</li>
+      <li class="ref-item">van der Linden, S. (2017). Inoculating Against Misinformation. <em>Science</em>, 358(6367),
+        1141–1142.</li>
+      <li class="ref-item">Reserve Bank of India. (2023). Master Directions — Banknote Security Features and
+        Verification Guidelines.</li>
+      <li class="ref-item">National Crime Records Bureau. (2024). Crime in India 2023 — Cybercrime Statistics. Ministry
+        of Home Affairs, Government of India.</li>
+    </ol>
+
+    <hr class="divider">
+
+    <div style="text-align: center; padding: 20px 0;">
+      <p class="text-xs text-muted mb-4" style="letter-spacing: 0.06em; text-transform: uppercase;">End of Document</p>
+      <p class="text-sm mb-4" style="color: var(--color-ink);">
+        <strong>NETRA — National Electronic Threat Recognition &amp; Analysis</strong>
+      </p>
+      <p class="text-xs text-secondary mb-0">
+        Built by Bhaskar Ranjan Karn &nbsp;·&nbsp; ET GEN AI Hackathon 2026
+      </p>
+    </div>
+
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">12</div>
+  </div>
 
 </body>
+
 </html>
