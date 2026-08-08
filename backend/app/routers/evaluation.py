@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 eval_router = APIRouter()
 intel_router = APIRouter()
 
+# Prevent concurrent evaluation runs (exhausts API rate limits)
+import asyncio
+_eval_lock = asyncio.Lock()
+
 
 # ---------- Evaluation Endpoints ----------
 
@@ -69,7 +73,20 @@ async def run_evaluation(db: AsyncSession = Depends(get_db)):
     3. Compare F1 scores and compute improvement percentage
     4. Store results in evaluation_runs table
     """
+    if _eval_lock.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Evaluation already in progress. Please wait for it to complete."
+        )
+
+    async with _eval_lock:
+        return await _run_evaluation_impl(db)
+
+
+async def _run_evaluation_impl(db: AsyncSession):
+    """Internal implementation of evaluation run, protected by _eval_lock."""
     from app.agents.detection import DetectionAgent
+    from fastapi import HTTPException
 
     start_time = time.monotonic()
     agent = DetectionAgent(db)
@@ -89,8 +106,22 @@ async def run_evaluation(db: AsyncSession = Depends(get_db)):
             predicted_scam = bool(result.get("is_scam", False))
             confidence = result.get("confidence", 0)
 
+            # Robust confidence handling: ensure it's a valid number
+            try:
+                confidence = float(confidence)
+            except (TypeError, ValueError):
+                confidence = 0.0
+
             if netra_model_used is None:
                 netra_model_used = result.get("model_used", "unknown")
+
+            # Detailed per-case logging for debugging
+            logger.info(
+                f"Eval [{i+1}/{len(EVALUATION_DATASET)}] "
+                f"expected_scam={tc.is_scam} | predicted_scam={predicted_scam} | "
+                f"confidence={confidence:.3f} | scam_type={result.get('scam_type')} | "
+                f"model={result.get('model_used')} | category={tc.category}"
+            )
 
             # Threshold: scam if is_scam=True AND confidence >= 0.4
             if tc.is_scam:
@@ -100,6 +131,11 @@ async def run_evaluation(db: AsyncSession = Depends(get_db)):
                 else:
                     fn += 1
                     correct = False
+                    if predicted_scam:
+                        logger.warning(
+                            f"Eval [{i+1}] FALSE NEGATIVE: is_scam=True but confidence "
+                            f"{confidence:.3f} < 0.4 threshold"
+                        )
             else:
                 if not predicted_scam or confidence < 0.4:
                     tn += 1
