@@ -294,16 +294,69 @@ Respond in valid JSON only."""
             }
 
     def _parse_text_response(self, text: str) -> dict[str, Any]:
-        """Attempt to extract structured data from non-JSON LLM response."""
-        # Default safe response
-        return {
+        """
+        Extract structured data from non-JSON LLM response using regex patterns.
+        This is a safety net — if the LLM returns prose instead of JSON,
+        we still extract what we can rather than defaulting to is_scam=False.
+        """
+        import re
+
+        result = {
             "is_scam": False,
             "scam_type": None,
             "confidence": 0.0,
             "risk_level": "unknown",
             "language": "en",
-            "reasoning": f"Could not parse LLM response as JSON. Raw: {text[:500]}",
+            "reasoning": f"Extracted from non-JSON LLM response.",
             "tactics": [],
             "key_indicators": [],
             "legal_codes": [],
+            "kill_chain": [],
         }
+
+        text_lower = text.lower()
+
+        # Extract is_scam: look for "is_scam": true or "is_scam" : true patterns
+        is_scam_match = re.search(r'"is_scam"\s*:\s*(true|false)', text_lower)
+        if is_scam_match:
+            result["is_scam"] = is_scam_match.group(1) == "true"
+        else:
+            # Heuristic: if the response contains strong scam indicators
+            scam_keywords = ["scam", "fraud", "phishing", "impersonation", "fake", "suspicious"]
+            benign_keywords = ["legitimate", "not a scam", "benign", "genuine", "safe"]
+            scam_hits = sum(1 for kw in scam_keywords if kw in text_lower)
+            benign_hits = sum(1 for kw in benign_keywords if kw in text_lower)
+            if scam_hits > benign_hits:
+                result["is_scam"] = True
+
+        # Extract confidence
+        conf_match = re.search(r'"confidence"\s*:\s*([\d.]+)', text)
+        if conf_match:
+            try:
+                result["confidence"] = float(conf_match.group(1))
+            except ValueError:
+                pass
+
+        # Extract scam_type
+        type_match = re.search(r'"scam_type"\s*:\s*"([^"]+)"', text)
+        if type_match:
+            val = type_match.group(1)
+            if val.lower() != "null" and val.lower() != "none":
+                result["scam_type"] = val
+
+        # Extract risk_level
+        risk_match = re.search(r'"risk_level"\s*:\s*"([^"]+)"', text)
+        if risk_match:
+            result["risk_level"] = risk_match.group(1)
+
+        # Extract reasoning
+        reason_match = re.search(r'"reasoning"\s*:\s*"([^"]{10,})"', text)
+        if reason_match:
+            result["reasoning"] = reason_match.group(1)[:500]
+
+        logger.info(
+            f"Text response parsed: is_scam={result['is_scam']}, "
+            f"confidence={result['confidence']}, scam_type={result['scam_type']}"
+        )
+
+        return result

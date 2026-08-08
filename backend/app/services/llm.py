@@ -45,27 +45,107 @@ class LLMResponse:
         self.raw_response = raw_response
 
     def parse_json(self) -> dict | list | None:
-        """Attempt to parse the content as JSON."""
+        """
+        Robustly extract JSON from LLM responses.
+
+        Handles multiple response formats:
+        1. Clean JSON (ideal case)
+        2. Markdown code blocks: ```json ... ```, ```JSON ... ```, ``` ... ```
+        3. JSON embedded in prose text (finds the outermost { ... } or [ ... ])
+        4. Multiple JSON objects (picks the largest/most complete)
+        """
+        import re
+
+        text = self.content.strip()
+        if not text:
+            return None
+
+        # Strategy 1: Direct parse (ideal case)
         try:
-            # Try to extract JSON from markdown code blocks if present
-            text = self.content.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                # Remove first and last lines (``` markers)
-                json_lines = []
-                in_block = False
-                for line in lines:
-                    if line.strip().startswith("```") and not in_block:
-                        in_block = True
-                        continue
-                    elif line.strip() == "```" and in_block:
-                        break
-                    elif in_block:
-                        json_lines.append(line)
-                text = "\n".join(json_lines)
             return json.loads(text)
         except (json.JSONDecodeError, ValueError):
-            return None
+            pass
+
+        # Strategy 2: Extract from markdown code blocks (```json ... ```)
+        # Handles: ```json, ```JSON, ```Json, ``` (no language tag)
+        code_block_pattern = re.compile(
+            r'```(?:json|JSON|Json)?\s*\n(.*?)```',
+            re.DOTALL
+        )
+        matches = code_block_pattern.findall(text)
+        for match in matches:
+            try:
+                return json.loads(match.strip())
+            except (json.JSONDecodeError, ValueError):
+                continue
+
+        # Strategy 3: Find the outermost JSON object { ... } in the text
+        # This handles cases where LLM adds prose before/after JSON
+        brace_start = text.find('{')
+        bracket_start = text.find('[')
+
+        # Try object first, then array
+        for start_char, end_char in [('{', '}'), ('[', ']')]:
+            start_idx = text.find(start_char)
+            if start_idx == -1:
+                continue
+
+            # Find the matching closing brace/bracket by counting depth
+            depth = 0
+            in_string = False
+            escape_next = False
+            end_idx = -1
+
+            for i in range(start_idx, len(text)):
+                c = text[i]
+
+                if escape_next:
+                    escape_next = False
+                    continue
+
+                if c == '\\' and in_string:
+                    escape_next = True
+                    continue
+
+                if c == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+
+                if in_string:
+                    continue
+
+                if c == start_char:
+                    depth += 1
+                elif c == end_char:
+                    depth -= 1
+                    if depth == 0:
+                        end_idx = i
+                        break
+
+            if end_idx > start_idx:
+                candidate = text[start_idx:end_idx + 1]
+                try:
+                    return json.loads(candidate)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        # Strategy 4: Last resort — try to fix common LLM JSON errors
+        # (trailing commas, single quotes, etc.)
+        try:
+            # Remove trailing commas before } or ]
+            cleaned = re.sub(r',\s*([}\]])', r'\1', text)
+            # Find JSON object in cleaned text
+            brace_start = cleaned.find('{')
+            if brace_start >= 0:
+                # Simple greedy approach: find last }
+                brace_end = cleaned.rfind('}')
+                if brace_end > brace_start:
+                    return json.loads(cleaned[brace_start:brace_end + 1])
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        logger.warning(f"JSON parse failed for response (first 200 chars): {text[:200]}")
+        return None
 
 
 class LLMService:
