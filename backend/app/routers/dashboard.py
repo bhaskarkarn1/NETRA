@@ -24,7 +24,7 @@ router = APIRouter()
 
 # ---------- In-Memory Cache (30s TTL) ----------
 _cache: dict[str, tuple[float, Any]] = {}
-CACHE_TTL = 30  # seconds
+CACHE_TTL = 60  # seconds — increased from 30 to reduce DB pressure on Railway/Neon
 
 
 def _get_cached(key: str) -> Any | None:
@@ -132,7 +132,7 @@ async def get_metrics(
     ) or 0
 
     # --- NEW: Threat Level ---
-    # Computed from high-risk cases in the last 24 hours
+    # Computed from high-risk cases: checks last 24h first, falls back to all-time
     cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
     high_risk_24h = await db.scalar(
         select(func.count(Case.id)).where(
@@ -143,11 +143,23 @@ async def get_metrics(
         )
     ) or 0
 
+    # If no recent activity, check all-time to avoid always showing NORMAL on demos
+    if high_risk_24h == 0:
+        high_risk_total = await db.scalar(
+            select(func.count(Case.id)).where(
+                Case.risk_level.in_(["critical", "high"])
+            )
+        ) or 0
+    else:
+        high_risk_total = high_risk_24h
+
     if high_risk_24h >= 5:
         threat_level = "CRITICAL"
     elif high_risk_24h >= 2:
         threat_level = "HIGH"
-    elif high_risk_24h >= 1:
+    elif high_risk_24h >= 1 or high_risk_total >= 3:
+        threat_level = "ELEVATED"
+    elif high_risk_total >= 1:
         threat_level = "ELEVATED"
     else:
         threat_level = "NORMAL"
@@ -475,8 +487,43 @@ async def get_geospatial_data(db: AsyncSession = Depends(get_db)):
     loc_result = await db.execute(loc_stmt)
     location_nodes = loc_result.scalars().all()
 
-    # Also extract locations mentioned in case text via existing graph edges
-    # For each location node, find connected case nodes to get scam types
+    # Pre-fetch ALL edges and case nodes in bulk (eliminates N+1 queries)
+    all_edges_stmt = select(GraphEdge)
+    all_edges_result = await db.execute(all_edges_stmt)
+    all_edges = all_edges_result.scalars().all()
+
+    # Build adjacency map: node_id -> set of connected node_ids
+    adjacency: dict[str, set[str]] = {}
+    for e in all_edges:
+        adjacency.setdefault(str(e.source_id), set()).add(str(e.target_id))
+        adjacency.setdefault(str(e.target_id), set()).add(str(e.source_id))
+
+    # Pre-fetch all case nodes and their corresponding Case records
+    case_nodes_stmt = select(GraphNode).where(GraphNode.node_type == "case")
+    case_nodes_result = await db.execute(case_nodes_stmt)
+    case_nodes_map = {str(cn.id): cn.label for cn in case_nodes_result.scalars().all()}
+
+    # Pre-fetch all cases for scam_type lookup
+    all_case_ids = list(case_nodes_map.values())
+    cases_by_id: dict[str, str] = {}
+    if all_case_ids:
+        try:
+            import uuid as _uuid
+            valid_uuids = []
+            for cid in all_case_ids:
+                try:
+                    valid_uuids.append(_uuid.UUID(cid))
+                except (ValueError, AttributeError):
+                    pass
+            if valid_uuids:
+                cases_stmt = select(Case).where(Case.id.in_(valid_uuids))
+                cases_result = await db.execute(cases_stmt)
+                for c in cases_result.scalars().all():
+                    if c.scam_type:
+                        cases_by_id[str(c.id)] = c.scam_type
+        except Exception:
+            pass
+
     points: list[GeoPoint] = []
     seen_locations: dict[str, GeoPoint] = {}
 
@@ -487,43 +534,17 @@ async def get_geospatial_data(db: AsyncSession = Depends(get_db)):
 
         loc_key = geo["matched"]
         if loc_key in seen_locations:
-            # Increment case count for duplicates
             seen_locations[loc_key].case_count += 1
             continue
 
-        # Find connected cases to attribute scam types
-        edge_stmt = select(GraphEdge).where(
-            (GraphEdge.source_id == node.id) | (GraphEdge.target_id == node.id)
-        )
-        edge_result = await db.execute(edge_stmt)
-        edges = edge_result.scalars().all()
-
-        # Get case nodes connected to this location
-        connected_ids = set()
-        for e in edges:
-            connected_ids.add(e.source_id)
-            connected_ids.add(e.target_id)
-        connected_ids.discard(node.id)
-
+        # Use pre-fetched adjacency map instead of per-node queries
+        connected_ids = adjacency.get(str(node.id), set())
         scam_types = []
-        if connected_ids:
-            case_node_stmt = select(GraphNode).where(
-                GraphNode.id.in_(list(connected_ids)),
-                GraphNode.node_type == "case",
-            )
-            case_result = await db.execute(case_node_stmt)
-            case_nodes = case_result.scalars().all()
-
-            for cn in case_nodes:
-                # Case node label is the case ID — look up the actual case
-                case_stmt = select(Case).where(Case.id == cn.label)
-                try:
-                    cr = await db.execute(case_stmt)
-                    actual_case = cr.scalar_one_or_none()
-                    if actual_case and actual_case.scam_type:
-                        scam_types.append(actual_case.scam_type)
-                except Exception:
-                    pass
+        for cid in connected_ids:
+            if cid in case_nodes_map:
+                case_label = case_nodes_map[cid]
+                if case_label in cases_by_id:
+                    scam_types.append(cases_by_id[case_label])
 
         point = GeoPoint(
             lat=geo["lat"],
