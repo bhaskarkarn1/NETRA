@@ -131,7 +131,7 @@ function CategoryBreakdown({
           <div key={cat}>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-white/60 capitalize">
-                {cat.replace(/_/g, " ")}
+                {cat.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
               </span>
               <span className="text-white/80 font-mono">
                 {(stats.accuracy * 100).toFixed(0)}% ({stats.total} cases)
@@ -179,13 +179,25 @@ function BaselineComparison({ eval: ev }: { eval: EvaluationResult }) {
       <h3 className="text-sm font-semibold text-white/70 mb-2">
         NETRA (LLM) vs. Baseline (TF-IDF + Logistic Regression)
       </h3>
-      {ev.improvement_pct && (
-        <p className="text-emerald-400 text-sm mb-4">
-          ▲ NETRA outperforms baseline by{" "}
-          <span className="font-bold text-lg">
-            {ev.improvement_pct.toFixed(1)}%
-          </span>
-        </p>
+      {ev.improvement_pct != null && ev.improvement_pct !== 0 && (
+        ev.improvement_pct > 0 ? (
+          <p className="text-emerald-400 text-sm mb-4">
+            ▲ NETRA outperforms baseline by{" "}
+            <span className="font-bold text-lg">
+              {ev.improvement_pct.toFixed(1)}%
+            </span>
+          </p>
+        ) : (
+          <p className="text-amber-400 text-sm mb-4">
+            ● NETRA F1 delta vs baseline:{" "}
+            <span className="font-bold text-lg">
+              {ev.improvement_pct.toFixed(1)}%
+            </span>
+            <span className="text-white/40 text-xs ml-2">
+              (LLM provides richer analysis: kill chain, tactics, legal mapping, graph intelligence)
+            </span>
+          </p>
+        )
       )}
       <div className="space-y-4">
         {metrics.map((m) => (
