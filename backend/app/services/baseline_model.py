@@ -70,26 +70,29 @@ class BaselineClassifier:
         """
         Train TF-IDF + Logistic Regression on ground-truth dataset.
 
-        Uses 5-fold stratified cross-validation for robust metrics,
-        then trains final model on full dataset.
+        Converts multi-class labels to binary (scam vs benign) for fair
+        comparison with NETRA's binary evaluation.
+
+        Uses stratified train/test split (70/30) for honest metrics.
+        Falls back to cross-validation if too few samples.
         """
         from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.linear_model import LogisticRegression
-        from sklearn.model_selection import cross_val_predict, StratifiedKFold
+        from sklearn.model_selection import StratifiedShuffleSplit
         from sklearn.metrics import (
             precision_score, recall_score, f1_score, accuracy_score,
-            confusion_matrix, classification_report
+            confusion_matrix
         )
         import numpy as np
 
         logger.info(f"Training baseline on {len(texts)} samples")
 
-        # Build label mapping
-        unique_labels = sorted(set(labels))
-        self.label_map = {label: i for i, label in enumerate(unique_labels)}
-        self.inverse_label_map = {i: label for label, i in self.label_map.items()}
+        # Convert to binary classification: scam (1) vs benign (0)
+        # This matches NETRA's binary evaluation (is_scam true/false)
+        binary_labels = [0 if label == "benign" or label is None else 1 for label in labels]
+        y = np.array(binary_labels)
 
-        y = np.array([self.label_map[label] for label in labels])
+        logger.info(f"Binary split: {sum(y)} scam, {len(y) - sum(y)} benign")
 
         # TF-IDF: unigrams + bigrams, max 5000 features
         self.vectorizer = TfidfVectorizer(
@@ -106,51 +109,58 @@ class BaselineClassifier:
         self.classifier = LogisticRegression(
             C=1.0,
             max_iter=1000,
-            multi_class="multinomial",
             solver="lbfgs",
             class_weight="balanced",  # Handle class imbalance
             random_state=42,
         )
 
-        # Cross-validated predictions for honest evaluation
-        n_folds = min(5, min(np.bincount(y)))
-        if n_folds >= 2:
-            cv = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
-            y_pred = cross_val_predict(self.classifier, X, y, cv=cv)
-        else:
-            # Too few samples per class — train/predict on full set (overfitting acknowledged)
-            self.classifier.fit(X, y)
-            y_pred = self.classifier.predict(X)
+        # Stratified train/test split for honest evaluation
+        # 70% train, 30% test — prevents overfitting on small dataset
+        splitter = StratifiedShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
+        train_idx, test_idx = next(splitter.split(X, y))
 
-        # Train final model on full dataset
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+
+        self.classifier.fit(X_train, y_train)
+        y_pred = self.classifier.predict(X_test)
+
+        # Now re-train on full dataset for the predict() method
         self.classifier.fit(X, y)
         self.is_trained = True
 
-        # Compute metrics
-        precision = precision_score(y, y_pred, average="weighted", zero_division=0)
-        recall = recall_score(y, y_pred, average="weighted", zero_division=0)
-        f1 = f1_score(y, y_pred, average="weighted", zero_division=0)
-        accuracy = accuracy_score(y, y_pred)
+        # Build label mappings for predict()
+        self.label_map = {"benign": 0, "scam": 1}
+        self.inverse_label_map = {0: "benign", 1: "scam"}
 
-        # Confusion matrix
-        cm = confusion_matrix(y, y_pred)
-        cm_dict = {}
-        for i, actual_label in enumerate(unique_labels):
-            cm_dict[actual_label] = {}
-            for j, pred_label in enumerate(unique_labels):
-                cm_dict[actual_label][pred_label] = int(cm[i][j])
+        # Compute binary metrics on the held-out test set
+        precision = precision_score(y_test, y_pred, zero_division=0)
+        recall = recall_score(y_test, y_pred, zero_division=0)
+        f1 = f1_score(y_test, y_pred, zero_division=0)
+        accuracy = accuracy_score(y_test, y_pred)
 
-        # Per-category metrics
-        report = classification_report(y, y_pred, target_names=unique_labels, output_dict=True, zero_division=0)
-        per_cat = {}
-        for label in unique_labels:
-            if label in report:
-                per_cat[label] = {
-                    "precision": round(report[label]["precision"], 4),
-                    "recall": round(report[label]["recall"], 4),
-                    "f1": round(report[label]["f1-score"], 4),
-                    "support": int(report[label]["support"]),
-                }
+        # Confusion matrix (binary: benign=0, scam=1)
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+        cm_dict = {
+            "benign": {"benign": int(cm[0][0]), "scam": int(cm[0][1])},
+            "scam": {"benign": int(cm[1][0]), "scam": int(cm[1][1])},
+        }
+
+        # Per-category metrics (binary only)
+        per_cat = {
+            "benign": {
+                "precision": round(precision_score(y_test, y_pred, pos_label=0, zero_division=0), 4),
+                "recall": round(recall_score(y_test, y_pred, pos_label=0, zero_division=0), 4),
+                "f1": round(f1_score(y_test, y_pred, pos_label=0, zero_division=0), 4),
+                "support": int(sum(y_test == 0)),
+            },
+            "scam": {
+                "precision": round(precision, 4),
+                "recall": round(recall, 4),
+                "f1": round(f1, 4),
+                "support": int(sum(y_test == 1)),
+            },
+        }
 
         metrics = BaselineMetrics(
             precision=precision,
@@ -164,7 +174,7 @@ class BaselineClassifier:
         )
 
         logger.info(
-            f"Baseline trained: F1={f1:.4f}, P={precision:.4f}, R={recall:.4f}, "
+            f"Baseline trained (binary): F1={f1:.4f}, P={precision:.4f}, R={recall:.4f}, "
             f"Acc={accuracy:.4f} | {X.shape[1]} features, {len(texts)} samples"
         )
         return metrics
