@@ -870,15 +870,78 @@
 
     /* --- Print styles --- */
     @media print {
+      @page {
+        size: 210mm 297mm;
+        margin: 0;
+      }
+
+      html {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
       body {
-        background: white;
-        padding: 0;
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
       }
 
       .page {
-        box-shadow: none;
-        margin: 0;
-        page-break-after: always;
+        width: 210mm !important;
+        height: 297mm !important;
+        min-height: 297mm !important;
+        max-height: 297mm !important;
+        overflow: hidden !important;
+        padding: 24mm 28mm !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-after: page !important;
+        break-inside: avoid !important;
+        position: relative !important;
+      }
+
+      .page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+
+      /* Keep manual footers visible since they are part of the design */
+      .page-footer-line,
+      .page-footer-text,
+      .page-number {
+        display: block !important;
+      }
+
+      /* Prevent splitting of all block-level components */
+      .metric-card,
+      .callout,
+      .killchain-stage,
+      .pipeline-step,
+      .feature-item,
+      .arch-layer,
+      .arch-box,
+      .arch-diagram,
+      .two-col,
+      .two-col > div,
+      .metrics-row,
+      .feature-grid,
+      .killchain,
+      .pipeline,
+      .doc-table,
+      .toc,
+      .ref-list,
+      .cover,
+      .cover-meta,
+      .cover-footer {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      h1, h2, h3 {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
       }
     }
 
@@ -1182,8 +1245,15 @@
       </div>
     </div>
 
-    <hr class="divider">
+    <div class="page-footer-line"></div>
+    <div class="page-footer-text">NETRA — Technical Submission Document</div>
+    <div class="page-number">3</div>
+  </div>
 
+  <!-- ================================================================
+     PAGE 4 — PROBLEM STATEMENT
+     ================================================================ -->
+  <div class="page">
     <h1 class="section-heading"><span class="section-number">2</span> Problem Statement</h1>
 
     <div class="callout callout-important">
