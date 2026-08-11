@@ -88,112 +88,89 @@ async def get_metrics(
 ):
     """Dashboard statistics — all computed from database, nothing hardcoded.
 
-    Optimized: queries are batched into concurrent groups via asyncio.gather()
-    to reduce total DB round-trip time from ~12 sequential queries to ~3 parallel batches.
+    N+1 query for financial loss has been fixed (single IN query).
+    Queries run sequentially because AsyncSession cannot be shared
+    across concurrent coroutines.
     """
 
-    # Cache-first: return cached data if fresh
+    # Cache-first: return cached data if fresh (< 30s old)
     cached = _get_cached("metrics")
     if cached is not None:
         return cached
 
     from app.database import GraphEdge
-    from sqlalchemy import and_
 
-    # --- Batch 1: Simple count queries (all independent, run concurrently) ---
-    async def _case_counts():
-        total = await db.scalar(select(func.count(Case.id))) or 0
-        scams = await db.scalar(
-            select(func.count(Case.id)).where(Case.scam_type.is_not(None))
-        ) or 0
-        avg_conf = await db.scalar(
-            select(func.avg(Case.confidence)).where(Case.confidence.is_not(None))
-        ) or 0.0
-        return total, scams, avg_conf
+    # Cases
+    total_cases = await db.scalar(select(func.count(Case.id))) or 0
+    total_scams = await db.scalar(
+        select(func.count(Case.id)).where(Case.scam_type.is_not(None))
+    ) or 0
+    avg_conf = await db.scalar(
+        select(func.avg(Case.confidence)).where(Case.confidence.is_not(None))
+    ) or 0.0
 
-    async def _most_common_scam():
-        stmt = (
-            select(Case.scam_type, func.count(Case.id).label("cnt"))
-            .where(Case.scam_type.is_not(None))
-            .group_by(Case.scam_type)
-            .order_by(func.count(Case.id).desc())
-            .limit(1)
-        )
-        result = await db.execute(stmt)
-        row = result.first()
-        return row[0] if row else None
-
-    async def _sim_counts():
-        total_sims = await db.scalar(select(func.count(Simulation.id))) or 0
-        sims_int = await db.scalar(
-            select(func.count(Simulation.id)).where(Simulation.intervention_triggered == True)
-        ) or 0
-        return total_sims, sims_int
-
-    async def _graph_counts():
-        nodes = await db.scalar(select(func.count(GraphNode.id))) or 0
-        edges = await db.scalar(select(func.count(GraphEdge.id))) or 0
-        return nodes, edges
-
-    async def _audit_counts():
-        total = await db.scalar(select(func.count(AuditLog.id))) or 0
-        fallbacks = await db.scalar(
-            select(func.count(AuditLog.id)).where(AuditLog.status == "fallback")
-        ) or 0
-        return total, fallbacks
-
-    # Run all count queries concurrently
-    (
-        (total_cases, total_scams, avg_conf),
-        most_common_scam,
-        (total_sims, sims_intervened),
-        (total_nodes, total_edges),
-        (total_agent_calls, fallback_count),
-    ) = await asyncio.gather(
-        _case_counts(),
-        _most_common_scam(),
-        _sim_counts(),
-        _graph_counts(),
-        _audit_counts(),
+    # Most common scam type
+    most_common_stmt = (
+        select(Case.scam_type, func.count(Case.id).label("cnt"))
+        .where(Case.scam_type.is_not(None))
+        .group_by(Case.scam_type)
+        .order_by(func.count(Case.id).desc())
+        .limit(1)
     )
+    result = await db.execute(most_common_stmt)
+    row = result.first()
+    most_common_scam = row[0] if row else None
 
-    # --- Batch 2: Threat level + financial loss + disruptions (run concurrently) ---
-    async def _threat_level():
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        high_risk_24h = await db.scalar(
+    # Simulations
+    total_sims = await db.scalar(select(func.count(Simulation.id))) or 0
+    sims_intervened = await db.scalar(
+        select(func.count(Simulation.id)).where(Simulation.intervention_triggered == True)
+    ) or 0
+
+    # Graph
+    total_nodes = await db.scalar(select(func.count(GraphNode.id))) or 0
+    total_edges = await db.scalar(select(func.count(GraphEdge.id))) or 0
+
+    # Audit
+    total_agent_calls = await db.scalar(select(func.count(AuditLog.id))) or 0
+    fallback_count = await db.scalar(
+        select(func.count(AuditLog.id)).where(AuditLog.status == "fallback")
+    ) or 0
+
+    # Threat Level
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    high_risk_24h = await db.scalar(
+        select(func.count(Case.id)).where(
+            and_(
+                Case.risk_level.in_(["critical", "high"]),
+                Case.created_at >= cutoff,
+            )
+        )
+    ) or 0
+
+    if high_risk_24h == 0:
+        high_risk_total = await db.scalar(
             select(func.count(Case.id)).where(
-                and_(
-                    Case.risk_level.in_(["critical", "high"]),
-                    Case.created_at >= cutoff,
-                )
+                Case.risk_level.in_(["critical", "high"])
             )
         ) or 0
+    else:
+        high_risk_total = high_risk_24h
 
-        if high_risk_24h == 0:
-            high_risk_total = await db.scalar(
-                select(func.count(Case.id)).where(
-                    Case.risk_level.in_(["critical", "high"])
-                )
-            ) or 0
-        else:
-            high_risk_total = high_risk_24h
+    if high_risk_24h >= 5:
+        threat_level = "CRITICAL"
+    elif high_risk_24h >= 2:
+        threat_level = "HIGH"
+    elif high_risk_24h >= 1 or high_risk_total >= 3:
+        threat_level = "ELEVATED"
+    elif high_risk_total >= 1:
+        threat_level = "ELEVATED"
+    else:
+        threat_level = "NORMAL"
 
-        if high_risk_24h >= 5:
-            return "CRITICAL"
-        elif high_risk_24h >= 2:
-            return "HIGH"
-        elif high_risk_24h >= 1 or high_risk_total >= 3:
-            return "ELEVATED"
-        elif high_risk_total >= 1:
-            return "ELEVATED"
-        return "NORMAL"
-
-    async def _financial_loss():
-        """Single pass: fetch scam counts AND pattern avg_loss in one go (no N+1)."""
-        if total_scams == 0:
-            return 0.0
-
-        # Get scam type counts
+    # Financial Loss Prevented (N+1 fix: single IN query instead of loop)
+    financial_loss_prevented = 0.0
+    if total_scams > 0:
         scam_counts_stmt = (
             select(Case.scam_type, func.count(Case.id).label("cnt"))
             .where(Case.scam_type.is_not(None))
@@ -202,48 +179,42 @@ async def get_metrics(
         scam_counts_result = await db.execute(scam_counts_stmt)
         scam_counts = {row[0]: row[1] for row in scam_counts_result.all()}
 
-        # Fetch ALL pattern avg_loss_inr in a single query (eliminates N+1)
-        pattern_stmt = select(ScamPattern.name, ScamPattern.avg_loss_inr).where(
-            ScamPattern.name.in_(list(scam_counts.keys()))
-        )
-        pattern_result = await db.execute(pattern_stmt)
-        avg_losses = {row[0]: row[1] for row in pattern_result.all() if row[1]}
-
-        total_loss = 0.0
-        for stype, count in scam_counts.items():
-            if stype in avg_losses:
-                total_loss += avg_losses[stype] * count
-        return total_loss
-
-    async def _disruptions():
-        active = await db.scalar(select(func.count(DisruptionAction.id))) or 0
-        stmt = (
-            select(DisruptionAction)
-            .order_by(DisruptionAction.created_at.desc())
-            .limit(10)
-        )
-        rd_result = await db.execute(stmt)
-        rd_rows = rd_result.scalars().all()
-        recent = [
-            DisruptionActionFeed(
-                id=str(d.id),
-                action_type=d.action_type,
-                target_entity=d.target_entity,
-                target_institution=d.target_institution or "",
-                status=d.status or "simulated",
-                confidence=d.confidence or 0,
-                created_at=d.created_at.isoformat() if d.created_at else "",
+        # Single query for all patterns (eliminates N+1)
+        if scam_counts:
+            pattern_stmt = select(ScamPattern.name, ScamPattern.avg_loss_inr).where(
+                ScamPattern.name.in_(list(scam_counts.keys()))
             )
-            for d in rd_rows
-        ]
-        return active, recent
+            pattern_result = await db.execute(pattern_stmt)
+            avg_losses = {row[0]: row[1] for row in pattern_result.all() if row[1]}
 
-    # Run batch 2 concurrently
-    threat_level, financial_loss_prevented, (active_disruptions, recent_disruptions) = await asyncio.gather(
-        _threat_level(),
-        _financial_loss(),
-        _disruptions(),
+            for stype, count in scam_counts.items():
+                if stype in avg_losses:
+                    financial_loss_prevented += avg_losses[stype] * count
+
+    # Disruption Actions
+    active_disruptions = await db.scalar(
+        select(func.count(DisruptionAction.id))
+    ) or 0
+
+    recent_disruptions_stmt = (
+        select(DisruptionAction)
+        .order_by(DisruptionAction.created_at.desc())
+        .limit(10)
     )
+    rd_result = await db.execute(recent_disruptions_stmt)
+    rd_rows = rd_result.scalars().all()
+    recent_disruptions = [
+        DisruptionActionFeed(
+            id=str(d.id),
+            action_type=d.action_type,
+            target_entity=d.target_entity,
+            target_institution=d.target_institution or "",
+            status=d.status or "simulated",
+            confidence=d.confidence or 0,
+            created_at=d.created_at.isoformat() if d.created_at else "",
+        )
+        for d in rd_rows
+    ]
 
     result = DashboardMetrics(
         total_cases_analyzed=total_cases,

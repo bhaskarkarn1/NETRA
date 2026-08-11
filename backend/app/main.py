@@ -156,7 +156,7 @@ def create_app() -> FastAPI:
             "version": settings.APP_VERSION,
         }
 
-    @app.get("/health", tags=["Health"])
+    @app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
     async def health_deep():
         """Health check with DB connectivity validation.
 
