@@ -369,17 +369,15 @@ async def propagate_risk(
             adjacency[tgt].append((src, w))  # Bidirectional propagation
 
     # Seed risk: nodes linked to cases inherit risk from case confidence.
-    # Nodes with appearance_count > 1 are inherently riskier (repeat offenders).
+    # Nodes with high degree (many connections) are inherently riskier.
     seed_risk: dict[str, float] = {}
     for nid, node in node_map.items():
         base = node.risk_score or 0.0
-        # Nodes appearing in multiple cases are higher risk
-        appearances = node.appearance_count or 1
-        if appearances > 1:
-            base = max(base, min(0.3 + appearances * 0.15, 0.95))
-        # Nodes with many connections are higher risk
+        # Nodes with many connections are higher risk (repeat offenders / hubs)
         degree = len(adjacency.get(nid, []))
-        if degree >= 3:
+        if degree >= 4:
+            base = max(base, min(0.3 + degree * 0.12, 0.95))
+        elif degree >= 3:
             base = max(base, min(0.2 + degree * 0.1, 0.9))
         seed_risk[nid] = base
 
